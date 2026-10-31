@@ -1,0 +1,2819 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>麦轮底盘调试台 · Mecanum Debug Console</title>
+<style>
+:root{
+  --bg:#f1f3f7;
+  --panel:#ffffff;
+  --panel-2:#f7f9fc;
+  --line:#e3e7ee;
+  --line-2:#d3d9e3;
+  --text:#161c26;
+  --muted:#65707f;
+  --faint:#9aa4b2;
+  --accent:#1d5fd8;
+  --accent-soft:#e9f0fd;
+  --ok:#0f8a4d;
+  --ok-soft:#e6f5ec;
+  --warn:#c26a05;
+  --warn-soft:#fdf1e0;
+  --bad:#cf2f24;
+  --bad-soft:#fdecea;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Mono",Consolas,"Liberation Mono",monospace;
+  --radius:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+  font-size:13px;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  padding:0 0 32px;
+}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.app{max-width:1600px;margin:0 auto;padding:16px 18px 0;display:flex;flex-direction:column;gap:12px}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;align-items:start}
+
+/* ---------- 顶栏 ---------- */
+.topbar{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:12px 16px;
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  box-shadow:0 1px 2px rgba(16,24,40,.05);
+}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{
+  width:38px;height:38px;border-radius:10px;flex:none;
+  background:linear-gradient(135deg,#1d5fd8,#0d9488);
+  color:#fff;font-weight:700;font-size:16px;letter-spacing:.5px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 8px rgba(29,95,216,.28);
+}
+.brand h1{font-size:15px;font-weight:650;letter-spacing:.01em;white-space:nowrap}
+.brand p{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.statusline{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 10px;border-radius:999px;
+  border:1px solid var(--line-2);background:var(--panel-2);
+  font-size:11.5px;color:var(--muted);white-space:nowrap;
+}
+.pill b{color:var(--text);font-weight:600;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.pill.ok{background:var(--ok-soft);border-color:#bfe6cf;color:#0b6b3d}
+.pill.wait{background:var(--accent-soft);border-color:#c3d8fa;color:#1a4fb0}
+.pill.bad{background:var(--bad-soft);border-color:#f5c9c4;color:#a8241b}
+.led{width:8px;height:8px;border-radius:50%;background:#9aa4b2;box-shadow:0 0 0 3px rgba(154,164,178,.18)}
+.led.ok{background:#12a15a;box-shadow:0 0 0 3px rgba(18,161,90,.18)}
+.led.wait{background:#2b6fe0;box-shadow:0 0 0 3px rgba(43,111,224,.18)}
+.led.bad{background:#e0392b;box-shadow:0 0 0 3px rgba(224,57,43,.18)}
+.actions{display:flex;gap:8px;align-items:center}
+.btn{
+  font:inherit;font-size:12.5px;
+  padding:6px 13px;border-radius:8px;cursor:pointer;
+  border:1px solid var(--line-2);background:#fff;color:var(--text);
+  transition:.15s;white-space:nowrap;
+}
+.btn:hover{background:var(--panel-2);border-color:#b9c2ce}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 1px 3px rgba(29,95,216,.3)}
+.btn.primary:hover{background:#1a54c0}
+.btn.ghost{background:transparent;border-color:var(--line-2)}
+.btn.sm{padding:4px 9px;font-size:11.5px}
+select.btn{appearance:none;padding-right:22px;background-image:linear-gradient(45deg,transparent 50%,#8794a4 50%),linear-gradient(135deg,#8794a4 50%,transparent 50%);background-position:calc(100% - 12px) 12px,calc(100% - 8px) 12px;background-size:4px 4px,4px 4px;background-repeat:no-repeat}
+
+/* ---------- 卡片 ---------- */
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:12px 14px;display:flex;flex-direction:column;gap:10px;min-width:0;
+  box-shadow:0 1px 2px rgba(16,24,40,.05);
+}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.card h2{
+  font-size:11.5px;font-weight:650;letter-spacing:.09em;
+  color:var(--muted);text-transform:uppercase;white-space:nowrap;
+}
+.card h2 .zh{letter-spacing:.02em;font-size:12.5px;color:var(--text);text-transform:none;margin-left:6px}
+.hintbar{
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:7px 14px;font-size:11.5px;color:var(--muted);
+}
+.hintbar b{color:var(--text);font-weight:600;letter-spacing:.02em}
+.hintbar span{display:inline-flex;align-items:center;gap:6px}
+.hintbar i{
+  font-style:normal;width:15px;height:15px;border-radius:4px;flex:none;
+  background:var(--accent-soft);color:var(--accent);font-size:10px;font-weight:600;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.hint{font-size:11.5px;color:var(--faint)}
+.head-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* ---------- 场地 ---------- */
+#field{width:100%;height:520px;display:block;border-radius:9px;background:#eef1f6;border:1px solid var(--line)}
+.field-foot{display:flex;gap:8px;flex-wrap:wrap}
+.kv{
+  flex:1 1 150px;background:var(--panel-2);border:1px solid var(--line);
+  border-radius:8px;padding:7px 10px;min-width:0;
+}
+.kv span{display:block;font-size:11px;color:var(--muted);letter-spacing:.02em}
+.kv b{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13.5px;font-weight:600}
+
+/* 四轮仪表 */
+.wheels{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.wg{background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:8px 10px;position:relative;overflow:hidden}
+.wg .bar-top{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
+.wg .dot{width:7px;height:7px;border-radius:50%;flex:none}
+.wg .id{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.wg .big{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:19px;font-weight:650;line-height:1.25;letter-spacing:-.02em}
+.wg .big i{font-style:normal;font-size:10.5px;color:var(--faint);font-weight:500;margin-left:3px}
+.wg .track{height:4px;border-radius:2px;background:#e2e8f0;overflow:hidden;margin:5px 0 4px}
+.wg .fill{height:100%;border-radius:2px;width:0}
+.wg .sub{font-family:var(--mono);font-size:10.5px;color:var(--muted);display:flex;justify-content:space-between;gap:6px}
+.wg .sat{position:absolute;inset:0;border-radius:9px;border:1.5px solid var(--bad);opacity:0;pointer-events:none;transition:opacity .1s}
+.wg.on .sat{opacity:1}
+
+/* ---------- 遥控 ---------- */
+.stick-wrap{display:flex;gap:12px;align-items:flex-start}
+#stick{width:148px;height:148px;flex:none;cursor:grab;touch-action:none;border-radius:50%}
+#stick:active{cursor:grabbing}
+.stick-side{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0}
+.switch{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel-2);
+  font-size:12px;cursor:pointer;user-select:none;
+}
+.switch:hover{border-color:#c6cedb}
+.switch .sw-name{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.switch .sw-name b{color:var(--text);font-weight:600}
+.toggle{
+  width:34px;height:19px;border-radius:999px;background:#cdd5e1;position:relative;flex:none;transition:.18s;
+}
+.toggle::after{
+  content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.22);transition:.18s;
+}
+.switch.on .toggle{background:var(--accent)}
+.switch.on .toggle::after{transform:translateX(15px)}
+.switch.on.green .toggle{background:var(--ok)}
+
+.row{display:flex;align-items:center;gap:8px}
+.row label{font-size:11.5px;color:var(--muted);white-space:nowrap}
+input[type=range]{-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;background:#dfe5ee;outline:none;flex:1;min-width:60px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid var(--accent);cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid var(--accent);cursor:pointer}
+
+/* ---------- 控制链 ---------- */
+.chain{display:flex;flex-direction:column;gap:6px}
+.chain-grid{display:grid;grid-template-columns:34px 1fr 1fr;gap:4px 8px;font-size:11.5px;align-items:center}
+.chain-grid .h{color:var(--faint);font-size:10.5px;letter-spacing:.04em}
+.chain-grid .v{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;padding:2px 6px;border-radius:5px;background:var(--panel-2);border:1px solid var(--line)}
+.chain-grid .v.hot{background:var(--warn-soft);border-color:#f0d6ac;color:#8a4b03}
+.divider{height:1px;background:var(--line);margin:2px 0}
+
+/* 遥控原始通道 */
+.rawline{display:flex;flex-wrap:wrap;gap:3px 10px;font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.rawline b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+.rawline b.on{color:var(--accent)}
+
+/* ---------- 0x200 报文 ---------- */
+.canline{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.canbyte{
+  background:var(--panel-2);border:1px solid var(--line);border-radius:7px;
+  padding:4px 3px 5px;text-align:center;font-family:var(--mono);line-height:1.35;min-width:0;
+}
+.canbyte .id{display:block;font-size:9.5px;color:var(--faint);letter-spacing:.03em}
+.canbyte .val{display:block;font-size:11.5px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.canbyte .wh{display:block;font-size:9.5px;color:var(--muted)}
+.canbyte.hot{border-color:#f0d6ac;background:var(--warn-soft)}
+.canbyte.hot .val{color:#8a4b03}
+
+/* ---------- 方向自检 ---------- */
+.verify{display:grid;grid-template-columns:1.02fr .98fr;gap:14px}
+.vbox{display:flex;flex-direction:column;gap:7px;min-width:0}
+.vbox-h{font-size:11px;color:var(--faint);letter-spacing:.04em;font-weight:600}
+.dir-table{font-size:11px}
+.dir-table th{text-align:center;padding:4px 3px}
+.dir-table th:first-child{text-align:left}
+.dir-table td{padding:4px 3px;border-bottom:1px solid var(--line);text-align:center}
+.dir-table td:first-child{text-align:left;font-family:inherit;color:var(--text);white-space:nowrap;font-size:11.5px}
+.dc{
+  display:flex;flex-direction:column;align-items:center;gap:0;line-height:1.25;
+  font-family:var(--mono);padding:2px 0;border-radius:5px;
+}
+.dc b{font-size:12.5px;font-weight:600;color:var(--faint)}
+.dc i{font-style:normal;font-size:11px;font-weight:650;color:var(--muted)}
+.dc.ok i{color:var(--ok)}
+.dc.bad{background:var(--bad-soft)}
+.dc.bad i{color:var(--bad)}
+.vsum{font-size:11.5px;font-family:var(--mono);padding:5px 9px;border-radius:7px;background:var(--panel-2);border:1px solid var(--line)}
+.vsum.ok{background:var(--ok-soft);border-color:#bfe6cf;color:#0b6b3d}
+.vsum.bad{background:var(--bad-soft);border-color:#f5c9c4;color:#a8241b}
+
+/* ---------- 示波器 ---------- */
+#scope{width:100%;height:540px;display:block;border-radius:8px;background:#fbfcfe;border:1px solid var(--line)}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:7px;overflow:hidden;background:#fff}
+.seg button{
+  font:inherit;font-size:11.5px;padding:4px 9px;border:0;background:transparent;cursor:pointer;color:var(--muted);
+  border-right:1px solid var(--line);
+}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--accent);color:#fff}
+.seg button:hover:not(.on){background:var(--panel-2)}
+
+/* ---------- 参数 ---------- */
+.pgroup{display:flex;flex-direction:column;gap:4px}
+.pgroup-h{font-size:11px;color:var(--faint);letter-spacing:.04em;font-weight:600;margin-top:4px;margin-bottom:2px}
+.prow{display:grid;grid-template-columns:104px 1fr 58px;gap:8px;align-items:center}
+.prow .pl{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.prow .pv{
+  font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:11.5px;text-align:right;
+  background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:1px 5px;
+}
+
+/* ---------- 故障注入 ---------- */
+.frow{display:flex;flex-direction:column;gap:5px}
+.frow .fl{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.frow .fl code{font-family:var(--mono);font-size:10.5px;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:0 4px;color:#42506a}
+.chips{display:flex;gap:5px;flex-wrap:wrap}
+.chip{
+  font:inherit;font-size:11.5px;padding:3px 9px;border-radius:6px;cursor:pointer;
+  border:1px solid var(--line-2);background:#fff;color:var(--muted);transition:.13s;white-space:nowrap;
+  font-family:var(--mono);font-variant-numeric:tabular-nums;
+}
+.chip:hover{border-color:#b9c2ce;color:var(--text)}
+.chip.on{background:var(--bad);border-color:var(--bad);color:#fff}
+.chip.on.blue{background:var(--accent);border-color:var(--accent)}
+.chip small{opacity:.75;margin-left:3px;font-size:10px}
+
+/* ---------- 表格 ---------- */
+table{width:100%;border-collapse:collapse;font-size:11.5px}
+th{
+  text-align:left;font-weight:600;color:var(--faint);font-size:10.5px;letter-spacing:.05em;
+  padding:5px 6px;border-bottom:1px solid var(--line-2);white-space:nowrap;
+}
+td{padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:top;font-family:var(--mono);font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}
+td.txt{font-family:inherit;color:var(--muted)}
+.bit{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px}
+.bit .d{width:7px;height:7px;border-radius:2px;background:#dfe5ee;border:1px solid #cbd3de}
+.bit.on .d{background:var(--bad);border-color:var(--bad);box-shadow:0 0 0 3px rgba(207,47,36,.12)}
+.bit.on{color:var(--bad);font-weight:600}
+.bitrow{
+  display:flex;align-items:center;gap:8px;padding:5px 9px;
+  border:1px solid var(--line);border-radius:7px;background:var(--panel-2);
+}
+.bitrow small{color:var(--faint);font-size:10px;margin-left:auto;text-align:right;line-height:1.3}
+
+/* ---------- 计算 ---------- */
+.calc-in{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.calc-in label{display:block;font-size:10.5px;color:var(--faint);margin-bottom:3px}
+.calc-in input{
+  width:100%;font:inherit;font-family:var(--mono);font-size:12.5px;
+  padding:5px 8px;border:1px solid var(--line-2);border-radius:7px;background:#fff;color:var(--text);
+}
+.calc-in input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.formula{
+  font-family:var(--mono);font-size:11px;color:#4a5568;background:var(--panel-2);
+  border:1px solid var(--line);border-radius:8px;padding:8px 10px;line-height:1.7;overflow-x:auto;white-space:pre;
+}
+
+/* ---------- 清单 ---------- */
+.check-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
+.chk{display:flex;align-items:center;gap:8px;padding:6px 2px;border-bottom:1px solid var(--line);font-size:12px}
+.chk:last-child{border-bottom:0}
+.chk input[type=checkbox]{width:15px;height:15px;accent-color:var(--ok);cursor:pointer;flex:none}
+.chk .cname{flex:1;min-width:0}
+.chk .cname small{display:block;color:var(--faint);font-size:10.5px;line-height:1.4}
+.chk .cbox{font-family:var(--mono);font-size:11px;color:var(--faint);white-space:nowrap;min-width:52px;text-align:right}
+
+.note{font-size:11.5px;color:var(--muted);line-height:1.6}
+.note b{color:var(--text);font-weight:600}
+.note code{font-family:var(--mono);font-size:11px;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:0 4px;color:#42506a}
+.warnbox{
+  background:var(--warn-soft);border:1px solid #f2dcb8;border-radius:8px;padding:8px 10px;
+  font-size:11.5px;color:#7a4a06;line-height:1.6;
+}
+
+/* ---------- 顶栏吸附 ---------- */
+.topbar{
+  position:sticky;top:8px;z-index:40;
+  background:rgba(255,255,255,.94);
+  -webkit-backdrop-filter:blur(12px) saturate(1.35);
+  backdrop-filter:blur(12px) saturate(1.35);
+  box-shadow:0 1px 2px rgba(16,24,40,.05),0 10px 24px -18px rgba(16,24,40,.45);
+}
+.topbar .pill{transition:background .15s,color .15s,border-color .15s}
+
+/* 建议路径变成可点击跳转 */
+.hintbar .jump{
+  cursor:pointer;border-radius:6px;padding:2px 7px;margin:-2px 0;
+  transition:background .13s,color .13s;
+}
+.hintbar .jump:hover,.hintbar .jump:focus-visible{background:var(--accent-soft);color:var(--accent);outline:none}
+.hintbar .jump:hover i,.hintbar .jump:focus-visible i{background:var(--accent);color:#fff}
+#card-chassis,#card-rc,#card-scope,#card-params,#card-fault,#card-verify,#card-list{scroll-margin-top:92px}
+
+/* ---------- 结论条 ---------- */
+.verdict{
+  display:flex;gap:8px;align-items:flex-start;
+  border:1px solid var(--line);border-left:3px solid var(--line-2);
+  background:var(--panel-2);border-radius:8px;padding:8px 10px;
+  font-size:11.5px;line-height:1.6;color:var(--muted);
+  transition:background .18s,border-color .18s;
+}
+.verdict .vt{font-weight:650;color:var(--text);white-space:nowrap;flex:none}
+.verdict .vt::after{content:"·";margin-left:6px;opacity:.45}
+.verdict.ok{border-left-color:var(--ok);background:var(--ok-soft);color:#0b6b3d}
+.verdict.ok .vt{color:#0b6b3d}
+.verdict.warn{border-left-color:var(--warn);background:var(--warn-soft);color:#7a4a06}
+.verdict.warn .vt{color:#7a4a06}
+.verdict.bad{border-left-color:var(--bad);background:var(--bad-soft);color:#a8241b}
+.verdict.bad .vt{color:#a8241b}
+.verdict b{color:inherit;font-weight:650}
+
+/* ---------- 快捷键条 ---------- */
+.kbdbar{
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:9px 14px;font-size:11.5px;color:var(--faint);
+}
+.kbdbar b{color:var(--muted);font-weight:650;letter-spacing:.02em}
+.kbdbar span{display:inline-flex;align-items:center;gap:5px}
+kbd{
+  font-family:var(--mono);font-size:10.5px;line-height:1;padding:3px 5px;border-radius:4px;
+  background:var(--panel-2);border:1px solid var(--line-2);border-bottom-width:2px;color:#42506a;
+}
+
+@media (max-width:1180px){
+  .topbar{top:0;border-radius:0 0 var(--radius) var(--radius)}
+  .grid{grid-template-columns:repeat(6,1fr)}
+  .col-8,.col-4,.col-12{grid-column:span 6 !important}
+  .check-grid{grid-template-columns:1fr}
+}
+@media (max-width:720px){
+  .app{padding:12px 12px 0}
+  .brand p{display:none}
+  #field{height:280px}
+  #scope{height:320px}
+  .wheels{grid-template-columns:repeat(2,1fr)}
+  .calc-in{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">M</div>
+      <div>
+        <h1>麦轮底盘调试台</h1>
+        <p>MecanumChassis · STM32F4 + C620×4 + M3508 · 500&nbsp;Hz 速度闭环仿真</p>
+      </div>
+    </div>
+    <div class="statusline">
+      <span class="pill" id="pill-led"><span class="led" id="led"></span><span id="led-text">待使能</span></span>
+      <span class="pill mono" id="pill-arm">ARM <b id="v-arm">0</b></span>
+      <span class="pill mono" id="pill-stop">stop <b id="v-stop">0</b></span>
+      <span class="pill mono">cycle <b id="v-cycle">2</b> ms</span>
+      <span class="pill mono">t <b id="v-time">0.00</b> s</span>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="btn-run">暂停</button>
+      <button class="btn" id="btn-reset">归位</button>
+      <select class="btn" id="sel-speed" title="仿真时间倍率">
+        <option value="0.25">0.25×</option>
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+  </header>
+
+  <div class="hintbar">
+    <b>建议路径</b>
+    <span class="jump" tabindex="0" data-goto="card-chassis" title="跳到车体与轮系"><i>1</i>架空不使能 · 先看四轮反馈在线</span>
+    <span class="jump" tabindex="0" data-goto="card-rc" title="跳到遥控输入与单轮测试"><i>2</i>单轮测试 · 钉死轮位与方向</span>
+    <span class="jump" tabindex="0" data-goto="card-verify" title="跳到方向自检"><i>3</i>四轮方向自检 · 三组符号</span>
+    <span class="jump" tabindex="0" data-goto="card-params" title="跳到控制参数"><i>4</i>落地低速 · 再调 Kp / Ki</span>
+    <span class="jump" tabindex="0" data-goto="card-fault" title="跳到故障注入"><i>5</i>注入故障 · 先按 stop_reason 定位</span>
+  </div>
+
+  <div class="grid">
+
+    <!-- 场地 -->
+    <section class="card col-8" id="card-chassis" style="grid-column:span 8">
+      <div class="card-head">
+        <h2>Chassis<span class="zh">车体运动与轮系</span></h2>
+        <div class="head-tools">
+          <label class="switch" id="sw-air" style="padding:4px 9px">
+            <span class="sw-name"><b>架空</b>轮子离地</span>
+            <span class="toggle"></span>
+          </label>
+          <label class="switch on" id="sw-trail" style="padding:4px 9px">
+            <span class="sw-name"><b>轨迹</b></span>
+            <span class="toggle"></span>
+          </label>
+        </div>
+      </div>
+      <canvas id="field"></canvas>
+      <div class="wheels" id="wheels"></div>
+      <div class="field-foot">
+        <div class="kv"><span>指令 vx / vy / ωz（斜坡前）</span><b id="ro-cmd">0.00 / 0.00 / 0.00</b></div>
+        <div class="kv"><span>实际 vx / vy / ωz（轮速反解）</span><b id="ro-act">0.00 / 0.00 / 0.00</b></div>
+        <div class="kv"><span>轮速跟踪（实测 ÷ 目标 − 1）</span><b id="ro-err">—</b></div>
+        <div class="kv"><span>统一缩放 / 可达车速</span><b id="ro-scale">×1.000 / 1.26</b></div>
+        <div class="kv"><span>航向 θ / 位移</span><b id="ro-pose">0.0° / 0.00 m</b></div>
+      </div>
+    </section>
+
+    <!-- 遥控 + 控制链 -->
+    <div class="col-4" style="grid-column:span 4;display:flex;flex-direction:column;gap:12px;min-width:0">
+      <section class="card" id="card-rc">
+        <div class="card-head">
+          <h2>RC<span class="zh">遥控输入</span></h2>
+          <span class="hint">WASD 平移 · Q/E 自转</span>
+        </div>
+        <div class="stick-wrap">
+          <canvas id="stick"></canvas>
+          <div class="stick-side">
+            <label class="switch on green" data-sw="enable">
+              <span class="sw-name"><b>CH6</b>总使能</span>
+              <span class="toggle"></span>
+            </label>
+            <label class="switch" data-sw="top">
+              <span class="sw-name"><b>CH9</b>小陀螺</span>
+              <span class="toggle"></span>
+            </label>
+            <label class="switch" data-sw="test">
+              <span class="sw-name"><b>CH5</b>单轮测试</span>
+              <span class="toggle"></span>
+            </label>
+          </div>
+        </div>
+        <div class="row">
+          <label style="width:56px">自转 ωz</label>
+          <input type="range" id="rot" min="-1" max="1" step="0.01" value="0">
+          <span class="mono" id="rot-val" style="width:46px;text-align:right;font-size:11.5px">0.00</span>
+        </div>
+        <div class="rawline">
+          <span>CH1 <b id="rc-ch1">1024</b></span>
+          <span>CH2 <b id="rc-ch2">1024</b></span>
+          <span>CH4 <b id="rc-ch4">1024</b></span>
+          <span>CH5 <b id="rc-ch5">240</b></span>
+          <span>CH6 <b id="rc-ch6">1807</b></span>
+          <span>CH9 <b id="rc-ch9">240</b></span>
+        </div>
+        <div class="row">
+          <label style="width:56px">测试轮</label>
+          <div class="seg" id="seg-test">
+            <button data-w="0" class="on">LF</button>
+            <button data-w="1">RF</button>
+            <button data-w="2">LR</button>
+            <button data-w="3">RR</button>
+          </div>
+        </div>
+        <div class="row">
+          <label style="width:56px">单轮来源</label>
+          <select class="btn sm" id="sel-testsrc" style="flex:1;min-width:0">
+            <option value="rc">遥控 CH5 · 400 rpm 原始正转</option>
+            <option value="build">编译期 SINGLE_WHEEL_TEST · 300 rpm</option>
+          </select>
+        </div>
+        <div class="note" style="font-size:10.5px;line-height:1.5" id="test-info">—</div>
+        <div class="divider"></div>
+        <div class="frow">
+          <div class="fl">阶跃序列（用于观察 PID 响应）</div>
+          <div class="chips">
+            <button class="chip blue" data-script="step">前进</button>
+            <button class="chip blue" data-script="strafe">左移</button>
+            <button class="chip blue" data-script="rotate">逆时针</button>
+            <button class="chip blue" data-script="combo">组合</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Chain<span class="zh">控制链</span></h2>
+          <span class="hint">command → limited → rpm → current</span>
+        </div>
+        <div class="chain">
+          <div class="chain-grid">
+            <span class="h"></span><span class="h" style="text-align:right">command</span><span class="h" style="text-align:right">limited</span>
+            <span class="v" style="background:transparent;border:0;padding:0;color:var(--muted)">vx</span>
+            <span class="v" id="cvx">0.00</span><span class="v" id="lvx">0.00</span>
+            <span class="v" style="background:transparent;border:0;padding:0;color:var(--muted)">vy</span>
+            <span class="v" id="cvy">0.00</span><span class="v" id="lvy">0.00</span>
+            <span class="v" style="background:transparent;border:0;padding:0;color:var(--muted)">ωz</span>
+            <span class="v" id="cwz">0.00</span><span class="v" id="lwz">0.00</span>
+          </div>
+          <div class="divider"></div>
+          <div class="chain-grid" style="grid-template-columns:34px 1fr 1fr">
+            <span class="h"></span><span class="h" style="text-align:right">target</span><span class="h" style="text-align:right">actual</span>
+            <span class="v" style="background:transparent;border:0;padding:0;color:var(--muted)" id="cg-wheel">LF</span>
+            <span class="v" id="c-tgt">0</span><span class="v" id="c-act">0</span>
+          </div>
+          <div class="chain-grid" style="grid-template-columns:34px 1fr 1fr">
+            <span class="h"></span><span class="h" style="text-align:right">error</span><span class="h" style="text-align:right">current</span>
+            <span class="v" style="background:transparent;border:0;padding:0;color:var(--muted)">raw</span>
+            <span class="v" id="c-err">0</span><span class="v" id="c-cur">0</span>
+          </div>
+        </div>
+        <div class="rawline">
+          <span>转矩电流 <b id="c-amp">0.00</b> A</span>
+          <span>限幅 <b id="c-lim">4.88</b> A</span>
+          <span>占限幅 <b id="c-pct">0%</b></span>
+        </div>
+        <div class="divider"></div>
+        <div class="vbox-h">0x200 · 8 字节（按电调 ID 排列，高字节在前）</div>
+        <div class="canline" id="can-frame"></div>
+        <div class="note" style="font-size:10.5px;line-height:1.55">
+          byte0-1 = ID1 … byte6-7 = ID4，偏移由 <code>WHEEL_CAN_IDS</code> 决定而<b>不是</b>轮位下标；反馈帧 = 0x200+ID。
+          raw ±16384 ↔ ±20 A，4000 ≈ <b>4.88 A</b>，限的是转矩不是转速。
+        </div>
+      </section>
+    </div>
+
+    <!-- 示波器 -->
+    <section class="card col-8" id="card-scope" style="grid-column:span 8">
+      <div class="card-head">
+        <h2>Scope<span class="zh">速度环响应</span></h2>
+        <div class="head-tools">
+          <div class="seg" id="seg-scope">
+            <button data-w="0" class="on" style="border-left:3px solid #1d5fd8">LF</button>
+            <button data-w="1" style="border-left:3px solid #0d9488">RF</button>
+            <button data-w="2" style="border-left:3px solid #d97706">LR</button>
+            <button data-w="3" style="border-left:3px solid #7c3aed">RR</button>
+          </div>
+          <span class="hint">窗口 6 s · 采样 10 ms</span>
+          <button class="btn sm ghost" id="btn-export" title="导出当前窗口的目标/实测/电流，可直接贴进调车记录">导出 CSV</button>
+        </div>
+      </div>
+      <canvas id="scope"></canvas>
+      <div class="field-foot" style="gap:8px">
+        <div class="kv"><span>目标（末 0.5 s）</span><b id="st-tgt">—</b></div>
+        <div class="kv"><span>实测（末 0.5 s）</span><b id="st-act">—</b></div>
+        <div class="kv"><span>稳态误差</span><b id="st-err">—</b></div>
+        <div class="kv"><span>峰值 / 超调</span><b id="st-ovr">—</b></div>
+        <div class="kv"><span>电流饱和占比</span><b id="st-sat">—</b></div>
+      </div>
+      <div class="verdict" id="scope-verdict">
+        <span class="vt">等待输入</span>
+        <span id="scope-verdict-text">点上方「阶跃序列」或拖摇杆给一个输入，这里会直接给出下一步该动哪个参数。</span>
+      </div>
+    </section>
+
+    <!-- 参数 -->
+    <section class="card col-4" id="card-params" style="grid-column:span 4">
+      <div class="card-head">
+        <h2>Params<span class="zh">控制参数</span></h2>
+        <button class="btn sm ghost" id="btn-defaults">恢复默认</button>
+      </div>
+      <div id="param-groups" style="display:flex;flex-direction:column;gap:12px"></div>
+      <div class="divider"></div>
+      <div class="note" style="font-size:11px">
+        参数取自 <code>Application/chassis_config.h</code>，改动即时生效，相当于改头文件后重新编译烧录。<br>
+        默认 <code>Ki=Kd=0</code>，纯 P 环必然留静差；先确认 Kp 稳定，再小步加 Ki，并同时确认积分限幅与抗饱和还在。<br>
+        <span id="calc-scale-note">—</span>
+      </div>
+    </section>
+
+    <!-- 故障注入 -->
+    <section class="card col-4" id="card-fault" style="grid-column:span 4">
+      <div class="card-head">
+        <h2>Fault<span class="zh">故障注入</span></h2>
+        <button class="btn sm ghost" id="btn-clear-faults">全部清除</button>
+      </div>
+
+      <div class="frow">
+        <div class="fl">常见场景 · 一键加载</div>
+        <div class="chips" id="preset-chips">
+          <button class="chip blue" data-preset="ok">出厂正常</button>
+          <button class="chip blue" data-preset="ids">ID 错线</button>
+          <button class="chip blue" data-preset="sign">左前反转</button>
+          <button class="chip blue" data-preset="radius">半径填直径</button>
+          <button class="chip blue" data-preset="lost">遥控失联</button>
+        </div>
+        <div class="verdict" id="preset-note" style="padding:7px 9px;font-size:11px">
+          <span class="vt">未加载</span>
+          <span>选一个场景，配置会立刻生效并重置车体；看清现象再手动对照下方开关。</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="frow">
+        <div class="fl"><code>WHEEL_MOTOR_SIGNS</code>安装方向</div>
+        <div class="chips" id="sign-chips"></div>
+      </div>
+
+      <div class="frow">
+        <div class="fl"><code>WHEEL_CAN_IDS</code>电调 ID 映射</div>
+        <select class="btn" id="sel-ids" style="width:100%">
+          <option value="1,4,2,3">默认 {1, 4, 2, 3}</option>
+          <option value="3,4,2,1">左前 ↔ 右后互换 {3, 4, 2, 1}</option>
+          <option value="3,2,4,1">全部反序 {3, 2, 4, 1}</option>
+          <option value="4,1,2,3">左右前轮互换 {4, 1, 2, 3}</option>
+        </select>
+        <div class="note" style="font-size:10.5px;line-height:1.5">
+          现象与运动方向有关：<b>{4,1,2,3}</b> 前进时四轮互相抵消、车不动，左移却正常；<b>{3,2,4,1}</b> 前进变后退。
+        </div>
+      </div>
+
+      <div class="frow">
+        <div class="fl"><code>WHEEL_RADIUS_M</code></div>
+        <div class="chips">
+          <button class="chip" id="chip-radius">半径误填成直径（×2）</button>
+        </div>
+      </div>
+
+      <div class="frow">
+        <div class="fl">电机反馈（C620）</div>
+        <div class="chips" id="offline-chips"></div>
+      </div>
+
+      <div class="frow">
+        <div class="fl">总线与链路</div>
+        <div class="chips" id="link-chips">
+          <button class="chip" data-fault="rcLost">遥控失联</button>
+          <button class="chip" data-fault="canError">CAN 错误</button>
+          <button class="chip" data-fault="cycleOverrun">周期超时</button>
+        </div>
+      </div>
+
+      <div class="warnbox" style="font-size:11px">
+        注入故障后先看 <b>stop_reason</b> 位掩码，再看四个电机反馈，最后才怀疑 PID。禁止同时改多个符号碰运气。
+      </div>
+    </section>
+
+    <!-- 手算 -->
+    <section class="card col-4" style="grid-column:span 4">
+      <div class="card-head">
+        <h2>Calc<span class="zh">逆解手算与几何标定</span></h2>
+        <button class="btn sm ghost" id="btn-fill-calc">填入当前摇杆</button>
+      </div>
+      <div class="calc-in">
+        <div><label>vx (m/s)</label><input type="number" id="ci-vx" value="1" step="0.1"></div>
+        <div><label>vy (m/s)</label><input type="number" id="ci-vy" value="0" step="0.1"></div>
+        <div><label>ωz (rad/s)</label><input type="number" id="ci-wz" value="0" step="0.1"></div>
+      </div>
+      <div class="formula" id="calc-formula"></div>
+      <table>
+        <thead><tr><th>轮位</th><th>等效线速度</th><th>转子 RPM</th><th>缩放后</th></tr></thead>
+        <tbody id="calc-body"></tbody>
+      </table>
+      <div class="note" style="font-size:11px">
+        以 <code>to_rpm = 60·i/(2π·r)</code> 换算；任一 |rpm| 超 <code>MAX_MOTOR_RPM</code> 时四轮同比缩放，保留合成运动方向。
+      </div>
+    </section>
+
+    <!-- 停机原因 -->
+    <section class="card col-4" style="grid-column:span 4">
+      <div class="card-head">
+        <h2>Diagnostics<span class="zh">停机原因</span></h2>
+        <span class="hint">位掩码</span>
+      </div>
+      <div class="bitrow"><span class="bit" id="bit0"><span class="d"></span>bit0 · 遥控异常</span><small>未接收 / 失控 / 超 100 ms</small></div>
+      <div class="bitrow"><span class="bit" id="bit1"><span class="d"></span>bit1 · 电机异常</span><small>任一电机无反馈</small></div>
+      <div class="bitrow"><span class="bit" id="bit2"><span class="d"></span>bit2 · 新 CAN 错误</span><small>总线 / 波特率 / 邮箱</small></div>
+      <div class="bitrow"><span class="bit" id="bit3"><span class="d"></span>bit3 · 周期超时</span><small>cycle_ms &gt; 10</small></div>
+      <div class="divider"></div>
+      <div class="note" style="font-size:11px">
+        <b>停机只走 <code>Stop()</code>：</b>清目标、清积分、清规划速度，并用 <code>MotorCAN_Send(current, 1)</code> 撤掉三个邮箱里的旧报文。
+        只把 <code>target_rpm</code> 写 0 不算停机 —— 零目标仍会被 PID 算出制动力。<br><br>
+        <b>定位顺序：</b>动错轮子 → 查 <code>WHEEL_CAN_IDS</code>／电调 ID；轮位对但物理方向反 → 只改该轮 <code>WHEEL_MOTOR_SIGNS</code>；单轮正常但组合错 → 查滚子排列与坐标约定。不要靠反转最终电流掩盖问题。
+      </div>
+    </section>
+
+    <!-- 方向自检 -->
+    <section class="card col-12" id="card-verify" style="grid-column:span 12">
+      <div class="card-head">
+        <h2>Verify<span class="zh">四轮方向自检与反馈索引</span></h2>
+        <span class="hint">架空状态下先过这一项，再落地</span>
+      </div>
+      <div class="verify">
+        <div class="vbox">
+          <div class="vbox-h">统一轮向 · 上＝约定　下＝按当前配置推算</div>
+          <table class="dir-table">
+            <thead><tr><th>指令</th><th>LF 左前</th><th>RF 右前</th><th>LR 左后</th><th>RR 右后</th></tr></thead>
+            <tbody id="dir-body"></tbody>
+          </table>
+          <div class="vsum" id="dir-sum">—</div>
+        </div>
+        <div class="vbox">
+          <div class="vbox-h">C620 反馈帧 · 每帧 8 字节</div>
+          <table>
+            <thead><tr><th>轮位</th><th>StdId</th><th>speed_rpm</th><th>在线</th></tr></thead>
+            <tbody id="fb-body"></tbody>
+          </table>
+          <div class="note" style="font-size:10.5px;line-height:1.55">
+            帧内布局：<code>[0:1]</code> 机械角度 0..8191　<code>[2:3]</code> 转子 RPM　<code>[4:5]</code> 转矩电流　<code>[6]</code> 温度　<code>[7]</code> 保留。
+          </div>
+        </div>
+      </div>
+      <div class="note" style="font-size:10.5px;line-height:1.6">
+        <b>排查顺序：</b>动错轮 → 查 <code>WHEEL_CAN_IDS</code>／电调 ID（电调侧要用 SET 键改，改宏不改电调）；
+        轮位对但该轮方向反 → 只改该轮 <code>WHEEL_MOTOR_SIGNS</code>；前进对而平移不对 → 先核对滚子排列、左右通道符号与轮位，<b>不要盲改解算公式的正负号</b>。
+      </div>
+    </section>
+
+    <!-- 验收清单 -->
+    <section class="card col-12" style="grid-column:span 12">
+      <div class="card-head">
+        <h2>Checklist<span class="zh">上线前检查与验收</span></h2>
+        <div class="head-tools">
+          <span class="hint" id="check-progress">0 / 16</span>
+          <button class="btn sm ghost" id="btn-check-reset">清空</button>
+        </div>
+      </div>
+      <div class="check-grid" id="check-grid"></div>
+      <div class="note" style="font-size:11px">
+        按 <code>0.6.2 调试与调车</code> 的主线排序：上电前 → 看反馈 → 单轮 → 四轮方向 → 落地低速 → 停机与恢复。
+        实车项目须由带教人员完成；本页勾选仅作本地记录。
+      </div>
+    </section>
+
+  </div>
+
+  <div class="kbdbar">
+    <b>快捷键</b>
+    <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 平移</span>
+    <span><kbd>Q</kbd><kbd>E</kbd> 自转</span>
+    <span><kbd>Space</kbd> CH6 使能</span>
+    <span><kbd>P</kbd> 暂停 / 继续</span>
+    <span><kbd>R</kbd> 归位</span>
+    <span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> 示波器通道</span>
+    <span><kbd>Esc</kbd> 清除故障</span>
+    <span style="margin-left:auto">参数与勾选会记在本地，刷新不丢</span>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================================
+ *  0. 常量与状态
+ * ========================================================================= */
+
+const TAU = Math.PI * 2;
+
+/* 真实的物理参数（仿真世界的"真值"，与配置项区分开） */
+const TRUE_R = 0.077;                     // 真实轮半径 m
+const TRUE_MOUNT = [1, -1, 1, -1];        // 真实安装方向：+1 表示电机正转使该轮驱车向前
+const PHYS_ID = [1, 4, 2, 3];             // 各物理轮位（LF RF LR RR）实际占用的电调 ID
+
+/* 电机一阶模型：dω/dt = KEFF·(current − ω/BEMF − i_load)
+ * BEMF 为反电势斜率（rpm / 原始电流），决定空载转速；
+ * i_load 为落地摩擦与负载折算的等效电流。 */
+const KEFF = 11;                          // 每单位电流产生的转子加速度 rpm/s
+const BEMF = 2.25;                        // rpm per raw current
+const ILOAD_GROUND = 260;                 // 落地等效负载电流
+const ILOAD_AIR = 40;                     // 架空等效负载电流
+const FB_DELAY = 2;                       // 反馈滞后（控制周期数），2×2ms = 4ms
+
+const RC_TEST_WHEEL_RPM = 400;            // 遥控 CH5 单轮：原始正向固定 400 转子 RPM
+const TEST_MAX_RPM = 300;                 // 编译期 SINGLE_WHEEL_TEST=1：摇杆调速，上限 300
+/* 两套单轮别混（0.6.2 §4）：编译期那套走摇杆、上限 300；遥控 CH5 给 400 且不乘安装符号。
+ * README 说编译期优先于遥控，所以编译期打开时 CH5 不再起作用。 */
+/* 遥控原始量纲（rc_control_config.h）：端点 353/1024/1696，摇杆死区 0.05，
+ * 开关两端约 240 / 1807，CH6 阈值 1500，CH9 阈值 1400。 */
+const RC_MIN = 353, RC_CENTER = 1024, RC_MAX = 1696, RC_DEAD = 0.05;
+function normToRaw(v) {
+  if (Math.abs(v) < RC_DEAD) return RC_CENTER;
+  return Math.round(v >= 0
+    ? RC_CENTER + v * (RC_MAX - RC_CENTER)
+    : RC_CENTER + v * (RC_CENTER - RC_MIN));
+}
+
+/* C620 电流原始值量纲：±16384 ↔ ±20 A，所以 4000 ≈ 4.88 A */
+const CURRENT_A_PER_LSB = 20 / 16384;
+const ARM_CENTER_HOLD_MS = 300;
+const SCOPE_WINDOW = 6;                   // 示波器时间窗 s
+const SCOPE_DT = 0.01;                    // 示波器采样间隔 s
+
+const WN = ['LF', 'RF', 'LR', 'RR'];
+const WZH = ['左前', '右前', '左后', '右后'];
+const WC = ['#1d5fd8', '#0d9488', '#d97706', '#7c3aed'];
+
+/* 配置参数（对应 chassis_config.h 中的宏） */
+const DEFAULTS = {
+  kp: 5.0, ki: 0.0, kd: 0.0, integralLimit: 1000,
+  currentLimit: 4000,
+  maxMotorRpm: 3000,
+  maxVx: 3.0, maxVy: 3.0, maxWz: 3.0,
+  maxAccel: 1.5, maxAngAccel: 3.75,
+  wheelRadius: 0.077, wheelbase: 0.40, track: 0.40,
+  gearNum: 3591, gearDen: 187,
+  topSpin: 2.5, dt: 0.002
+};
+
+const P = Object.assign({}, DEFAULTS);
+
+/* 参数持久化：刷新后接着调，不回到出厂值（勾选清单同理，见下） */
+const PARAM_KEY = 'mecanum-params-v1';
+function loadParams() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PARAM_KEY) || 'null');
+    if (!saved || typeof saved !== 'object') return;
+    for (const k in DEFAULTS) {
+      if (typeof saved[k] === 'number' && isFinite(saved[k])) P[k] = saved[k];
+    }
+  } catch (e) { /* 隐私模式或损坏数据，直接用默认 */ }
+}
+let saveParamTimer = 0;
+function saveParams() {
+  clearTimeout(saveParamTimer);
+  saveParamTimer = setTimeout(() => {
+    try { localStorage.setItem(PARAM_KEY, JSON.stringify(P)); } catch (e) { }
+  }, 260);
+}
+loadParams();
+
+/* 故障与配置注入 */
+const F = {
+  signs: [1, -1, 1, -1],                  // WHEEL_MOTOR_SIGNS（当前配置）
+  ids: [1, 4, 2, 3],                      // WHEEL_CAN_IDS（当前配置）
+  radiusAsDiameter: false,
+  motorOffline: [false, false, false, false],   // 物理轮位
+  rcLost: false,
+  canError: false,
+  cycleOverrun: false
+};
+
+const S = {
+  running: true,
+  time: 0,
+  speedScale: 1,
+  /* 遥控 */
+  rc: { forward: 0, strafe: 0, rotate: 0, enabled: true, top: false, testMode: false },
+  testWheel: 0,
+  testSrc: 'rc',                           // 'rc' = CH5 遥控 400 rpm；'build' = 编译期 300 rpm
+  prevTestWheel: -1,
+  /* 指令 */
+  command: [0, 0, 0],
+  limited: [0, 0, 0],
+  targetSlot: [0, 0, 0, 0],
+  targetPhys: [0, 0, 0, 0],
+  /* 每轮状态（按物理轮位） */
+  rpm: [0, 0, 0, 0],
+  meas: [0, 0, 0, 0],
+  current: [0, 0, 0, 0],
+  integ: [0, 0, 0, 0],
+  prevMeas: [0, 0, 0, 0],                  // 上一周期测量值（微分用测量值差分）
+  hasLast: [false, false, false, false],   // PID_State.first：首周期微分强制 0
+  dly: [[0, 0], [0, 0], [0, 0], [0, 0]],   // 反馈滞后队列
+  spin: [0, 0, 0, 0],
+  scale: 1,                                 // 本次解算的统一缩放系数
+  testSlot: -1,                             // 当前单轮测试槽位（-1 = 未进入）
+  testPhys: -1,                             // 单轮测试落到哪个物理轮
+  testCmd: 0,                               // 单轮测试给出的目标 rpm
+  /* 车体 */
+  x: 0, y: 0, theta: 0,
+  vx: 0, vy: 0, wz: 0,
+  grounded: true,
+  /* 状态位 */
+  armed: false,
+  stopReason: 0,
+  cycleMs: 2,
+  script: null,
+  preset: null,                             // 当前加载的故障场景（null = 手动）
+  /* 视图 */
+  trail: [],
+  scopeWheel: 0,
+  scope: { t: [], tgt: [], act: [], cur: [] },
+  lastSample: -1
+};
+
+/* =========================================================================
+ *  1. 数学与控制器（与 C 代码一一对应）
+ * ========================================================================= */
+
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const ramp = (cur, tgt, step) => cur + clamp(tgt - cur, -step, step);
+
+/* 由配置推导几何与标定系数 */
+function geom() {
+  const rCfg = F.radiusAsDiameter ? P.wheelRadius * 2 : P.wheelRadius;
+  const gear = P.gearNum / P.gearDen;
+  const k = (P.wheelbase + P.track) * 0.5;
+  const toRpmCfg = 60 * gear / (TAU * rCfg);
+  const toRpmTrue = 60 * gear / (TAU * TRUE_R);
+  return { rCfg, gear, k, toRpmCfg, toRpmTrue };
+}
+
+/* Mecanum_Inverse：车体速度 -> 四轮转子 RPM（未乘安装符号） */
+function mecanumInverse(vx, vy, wz, g, out) {
+  const t = g.toRpmCfg;
+  out[0] = (vx - vy - g.k * wz) * t;
+  out[1] = (vx + vy + g.k * wz) * t;
+  out[2] = (vx + vy - g.k * wz) * t;
+  out[3] = (vx - vy + g.k * wz) * t;
+  let peak = 0;
+  for (let i = 0; i < 4; i++) peak = Math.max(peak, Math.abs(out[i]));
+  if (peak > P.maxMotorRpm) {
+    const s = P.maxMotorRpm / peak;
+    for (let i = 0; i < 4; i++) out[i] *= s;
+  }
+  return peak > P.maxMotorRpm ? P.maxMotorRpm / peak : 1;
+}
+
+/* PID_Step：位置式速度环，输出 C620 原始电流
+ * 与 Components/chassis_math.c 的顺序完全一致：
+ *   误差 → 积分（带限幅）→ 微分（用测量值差分）→ 求和 → 限幅
+ * 微分取 -Δmeasured/dt 而不是 Δerror/dt：目标突变时不会踢出一个尖峰；
+ * 首周期 prev_measured 还没有意义，硬算会得到巨大的假导数，所以强制 0。 */
+function pidStep(j, target, dt) {
+  /* CAN 反馈带 2 个控制周期滞后，这是高 Kp 时振荡的物理来源之一 */
+  const d = S.dly[j];
+  const fedBack = d[FB_DELAY - 1];
+  for (let i = FB_DELAY - 1; i > 0; i--) d[i] = d[i - 1];
+  d[0] = S.rpm[j];
+
+  const meas = fedBack + (Math.random() - 0.5) * 6;   // C620 反馈噪声
+  S.meas[j] = meas;
+
+  const err = target - meas;
+  const prevInteg = S.integ[j];
+  const integ = clamp(prevInteg + P.ki * err * dt, -P.integralLimit, P.integralLimit);
+  const deriv = S.hasLast[j] ? -(meas - S.prevMeas[j]) / dt : 0;
+
+  let out = P.kp * err + integ + P.kd * deriv;
+  /* 抗积分饱和：输出已打满、且误差还在往同一方向推 → 回滚本周期积分。
+   * 没有这一段的后果是堵转时积分堆到几千，松杆后车会"冲一下再停"。 */
+  if ((out > P.currentLimit && err > 0) || (out < -P.currentLimit && err < 0)) {
+    S.integ[j] = prevInteg;
+    out = P.kp * err + prevInteg + P.kd * deriv;
+  } else {
+    S.integ[j] = integ;
+  }
+
+  S.prevMeas[j] = meas;
+  S.hasLast[j] = true;
+  return clamp(out, -P.currentLimit, P.currentLimit);
+}
+
+function resetPid(j) {
+  S.integ[j] = 0;
+  S.prevMeas[j] = 0;
+  S.hasLast[j] = false;
+  S.dly[j] = [0, 0];
+}
+function resetAllPids() { for (let i = 0; i < 4; i++) resetPid(i); }
+
+/* WHEEL_CAN_IDS：配置槽位 -> 物理轮位 */
+function slotToPhys() {
+  const map = [-1, -1, -1, -1];
+  for (let i = 0; i < 4; i++) map[i] = PHYS_ID.indexOf(F.ids[i]);
+  return map;
+}
+
+/* =========================================================================
+ *  2. 仿真步进（对应 Chassis_Step，2 ms 一次）
+ * ========================================================================= */
+
+function stopAll() {
+  for (let i = 0; i < 4; i++) {
+    S.targetPhys[i] = 0;
+    S.targetSlot[i] = 0;
+    S.current[i] = 0;
+    resetPid(i);
+  }
+  S.limited[0] = S.limited[1] = S.limited[2] = 0;
+  S.prevTestWheel = -1;
+  S.testSlot = -1;
+  S.testPhys = -1;
+  S.testCmd = 0;
+}
+
+function step(dt) {
+  S.time += dt;
+  const g = geom();
+
+  updateScript();
+
+  /* ---- 1. 遥控快照 ---- */
+  const forward = S.rc.forward;
+  const strafe = S.rc.strafe;
+  const rotate = S.rc.rotate;
+
+  /* ---- 2. 设备在线检查 ---- */
+  let sr = 0;
+  if (F.rcLost) sr |= 1;
+  if (F.motorOffline.some(Boolean)) sr |= 2;
+  if (F.canError) sr |= 4;
+  S.cycleMs = F.cycleOverrun ? 12 : 2;
+  if (S.cycleMs > 10) sr |= 8;
+  S.stopReason = sr;
+
+  /* ---- 3. 操作层输出 -> 车体指令（操作层右移为正，底盘 vy 向左为正） ---- */
+  S.command[0] = forward * P.maxVx;
+  S.command[1] = -strafe * P.maxVy;
+  S.command[2] = S.rc.top ? P.topSpin : rotate * P.maxWz;
+
+  /* ---- 4. 使能判定：CH6 直接使能，故障强制停机 ---- */
+  S.armed = S.rc.enabled && sr === 0;
+
+  if (!S.armed) {
+    stopAll();
+  } else {
+    /* ---- 5. 单轮测试优先于驾驶与小陀螺 ---- */
+    const testWheel = S.rc.testMode ? S.testWheel : -1;
+    if (testWheel !== S.prevTestWheel) {
+      /* 切换测试轮时先清四轮 PID 与规划速度，避免带着上一个轮子的积分冲出去 */
+      resetAllPids();
+      S.limited = [0, 0, 0];
+      S.prevTestWheel = testWheel;
+    }
+    S.testSlot = testWheel;
+
+    /* ---- 6. 加速度限制 ---- */
+    for (let i = 0; i < 3; i++) {
+      const a = i === 2 ? P.maxAngAccel : P.maxAccel;
+      S.limited[i] = ramp(S.limited[i], S.command[i], a * dt);
+    }
+
+    if (testWheel >= 0) {
+      S.limited = [0, 0, 0];
+      S.scale = 1;
+      S.targetSlot = [0, 0, 0, 0];
+      /* 遥控 CH5：固定 400 rpm、电机原始正向，不乘安装符号；
+       * 编译期：摇杆调速，上限 300 rpm。两者都不做安装方向修正。 */
+      S.targetSlot[testWheel] = S.testSrc === 'build'
+        ? clamp(S.rc.forward, -1, 1) * TEST_MAX_RPM
+        : RC_TEST_WHEEL_RPM;
+      S.testCmd = S.targetSlot[testWheel];
+    } else {
+      S.scale = mecanumInverse(S.limited[0], S.limited[1], S.limited[2], g, S.targetSlot);
+      for (let i = 0; i < 4; i++) S.targetSlot[i] *= F.signs[i];
+    }
+
+    /* ---- 7. 槽位 -> 物理轮：ID 配置错位时指令会打到别的轮子上 ---- */
+    const map = slotToPhys();
+    S.targetPhys = [0, 0, 0, 0];
+    for (let i = 0; i < 4; i++) {
+      const j = map[i];
+      if (j >= 0) S.targetPhys[j] = S.targetSlot[i];
+    }
+    S.testPhys = testWheel >= 0 ? map[testWheel] : -1;
+
+    /* ---- 8. 四轮独立速度环 ---- */
+    for (let j = 0; j < 4; j++) {
+      if (F.motorOffline[j]) { S.current[j] = 0; resetPid(j); continue; }
+      /* 单轮测试：只有选中的那一轮进闭环，其余轮零电流、可手转（它们没做零速闭环） */
+      if (S.testPhys >= 0 && j !== S.testPhys) { S.current[j] = 0; resetPid(j); continue; }
+      S.current[j] = pidStep(j, S.targetPhys[j], dt);
+    }
+  }
+
+  integrate(dt, g);
+}
+
+/* 电机一阶模型 + 速度反解 + 位姿积分 */
+function integrate(dt, g) {
+  const iLoad = S.grounded ? ILOAD_GROUND : ILOAD_AIR;
+
+  for (let j = 0; j < 4; j++) {
+    if (F.motorOffline[j]) { S.rpm[j] *= 0.995; S.meas[j] = S.rpm[j]; continue; }
+    /* 反电势 + 负载电流：两者共同决定当前转速下的可用加速度 */
+    const d = KEFF * (S.current[j] - S.rpm[j] / BEMF - Math.sign(S.rpm[j]) * iLoad);
+    S.rpm[j] += d * dt;
+    /* 库仑摩擦死区：小电流小转速时把轮子刹停 */
+    if (Math.abs(S.current[j]) < 20 && Math.abs(S.rpm[j]) < 100) {
+      S.rpm[j] *= 1 - 6 * dt;
+      if (Math.abs(S.rpm[j]) < 3) S.rpm[j] = 0;
+    }
+    if (Math.abs(S.rpm[j]) > 12000) S.rpm[j] = Math.sign(S.rpm[j]) * 12000;
+    S.meas[j] = S.rpm[j];
+    /* 视觉相位：按输出轴转速累积 */
+    S.spin[j] += (S.rpm[j] / g.gear) / 60 * TAU * dt;
+  }
+
+  /* 由实测轮速反解车体速度：这里用真实半径，几何填错时车速会与指令不符 */
+  const v = [0, 0, 0, 0];
+  for (let j = 0; j < 4; j++) v[j] = S.rpm[j] * TRUE_MOUNT[j] / g.toRpmTrue;
+
+  S.vx = (v[0] + v[1] + v[2] + v[3]) / 4;
+  S.vy = (-v[0] + v[1] + v[2] - v[3]) / 4;
+  S.wz = (-v[0] + v[1] - v[2] + v[3]) / (4 * g.k);
+
+  if (!S.grounded) { S.vx = S.vy = S.wz = 0; }
+
+  const c = Math.cos(S.theta), s = Math.sin(S.theta);
+  S.x += (S.vx * c - S.vy * s) * dt;
+  S.y += (S.vx * s + S.vy * c) * dt;
+  S.theta += S.wz * dt;
+
+  if (S.theta > Math.PI) S.theta -= TAU;
+  if (S.theta < -Math.PI) S.theta += TAU;
+
+  /* 轨迹采样 */
+  if (S.grounded) {
+    const last = S.trail[S.trail.length - 1];
+    if (!last || Math.hypot(S.x - last.x, S.y - last.y) > 0.012) {
+      S.trail.push({ x: S.x, y: S.y });
+      if (S.trail.length > 1400) S.trail.shift();
+    }
+  }
+
+  /* 示波器采样（10 ms） */
+  if (S.time - S.lastSample >= SCOPE_DT) {
+    S.lastSample = S.time;
+    const sc = S.scope;
+    sc.t.push(S.time);
+    sc.tgt.push(S.targetPhys[S.scopeWheel]);
+    sc.act.push(S.rpm[S.scopeWheel]);
+    sc.cur.push(S.current[S.scopeWheel]);
+    while (sc.t.length && S.time - sc.t[0] > SCOPE_WINDOW + 0.5) {
+      sc.t.shift(); sc.tgt.shift(); sc.act.shift(); sc.cur.shift();
+    }
+  }
+}
+
+/* ---- 阶跃序列 ---- */
+const SCRIPTS = {
+  step: { f: 0.85, s: 0, r: 0 },
+  strafe: { f: 0, s: 0.6, r: 0 },
+  rotate: { f: 0, s: 0, r: 0.65 },
+  combo: { f: 0.6, s: 0.4, r: 0.45 }
+};
+function runScript(kind) {
+  if (!S.rc.enabled) setSwitch('enable', true);
+  S.script = { kind, t0: S.time, dur: 2.0, tail: 0.8 };
+}
+function updateScript() {
+  if (!S.script) return;
+  const t = S.time - S.script.t0;
+  const p = SCRIPTS[S.script.kind];
+  const env = t < S.script.dur ? 1 : 0;
+  if (t > S.script.dur + S.script.tail) {
+    S.script = null;
+    S.rc.forward = S.rc.strafe = S.rc.rotate = 0;
+    return;
+  }
+  S.rc.forward = p.f * env;
+  S.rc.strafe = p.s * env;
+  S.rc.rotate = p.r * env;
+  rotInput.value = S.rc.rotate;
+  rotVal.textContent = S.rc.rotate.toFixed(2);
+}
+function cancelScript() { S.script = null; }
+
+/* =========================================================================
+ *  3. 画布工具
+ * ========================================================================= */
+
+function fitCanvas(cv) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const r = cv.getBoundingClientRect();
+  const w = Math.max(20, Math.round(r.width));
+  const h = Math.max(20, Math.round(r.height));
+  cv.width = Math.round(w * dpr);
+  cv.height = Math.round(h * dpr);
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w, h };
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.lineTo(x + w - rr, y);
+  ctx.arcTo(x + w, y, x + w, y + rr, rr);
+  ctx.lineTo(x + w, y + h - rr);
+  ctx.arcTo(x + w, y + h, x + w - rr, y + h, rr);
+  ctx.lineTo(x + rr, y + h);
+  ctx.arcTo(x, y + h, x, y + h - rr, rr);
+  ctx.lineTo(x, y + rr);
+  ctx.arcTo(x, y, x + rr, y, rr);
+  ctx.closePath();
+}
+
+/* =========================================================================
+ *  4. 场地渲染
+ * ========================================================================= */
+
+const fieldCv = document.getElementById('field');
+const scopeCv = document.getElementById('scope');
+const stickCv = document.getElementById('stick');
+let fb, sb, stb;
+const cam = { x: 0, y: 0 };
+
+function drawField() {
+  const { ctx, w, h } = fb;
+  ctx.clearRect(0, 0, w, h);
+
+  /* 背景与网格 */
+  ctx.fillStyle = '#eef1f6';
+  ctx.fillRect(0, 0, w, h);
+
+  const scale = Math.min(w / 1.15, h / 0.92);       // px per meter
+  /* 平滑跟随；车体离开视野较多时直接吸附，避免卡在边缘 */
+  const dx = S.x - cam.x, dy = S.y - cam.y;
+  const k = Math.hypot(dx, dy) > 0.9 ? 0.5 : 0.09;
+  cam.x += dx * k;
+  cam.y += dy * k;
+
+  const toPx = (x, y) => [w / 2 + (x - cam.x) * scale, h / 2 - (y - cam.y) * scale];
+
+  const halfW = w / 2 / scale + 0.4;
+  const halfH = h / 2 / scale + 0.4;
+
+  /* 细网格 0.1 m */
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#e2e7ef';
+  ctx.beginPath();
+  const x0 = Math.floor((cam.x - halfW) * 10) / 10;
+  const x1 = Math.ceil((cam.x + halfW) * 10) / 10;
+  const y0 = Math.floor((cam.y - halfH) * 10) / 10;
+  const y1 = Math.ceil((cam.y + halfH) * 10) / 10;
+  for (let gx = x0; gx <= x1; gx += 0.1) {
+    const p = toPx(gx, 0);
+    ctx.moveTo(Math.round(p[0]) + 0.5, 0);
+    ctx.lineTo(Math.round(p[0]) + 0.5, h);
+  }
+  for (let gy = y0; gy <= y1; gy += 0.1) {
+    const p = toPx(0, gy);
+    ctx.moveTo(0, Math.round(p[1]) + 0.5);
+    ctx.lineTo(w, Math.round(p[1]) + 0.5);
+  }
+  ctx.stroke();
+
+  /* 粗网格 0.5 m */
+  ctx.strokeStyle = '#d5dce7';
+  ctx.beginPath();
+  for (let gx = Math.floor(x0 * 2) / 2; gx <= x1; gx += 0.5) {
+    const p = toPx(gx, 0);
+    ctx.moveTo(Math.round(p[0]) + 0.5, 0);
+    ctx.lineTo(Math.round(p[0]) + 0.5, h);
+  }
+  for (let gy = Math.floor(y0 * 2) / 2; gy <= y1; gy += 0.5) {
+    const p = toPx(0, gy);
+    ctx.moveTo(0, Math.round(p[1]) + 0.5);
+    ctx.lineTo(w, Math.round(p[1]) + 0.5);
+  }
+  ctx.stroke();
+
+  /* 世界原点 */
+  const o = toPx(0, 0);
+  if (o[0] > -60 && o[0] < w + 60 && o[1] > -60 && o[1] < h + 60) {
+    ctx.strokeStyle = '#c2cbdb';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(o[0] - 9, o[1]); ctx.lineTo(o[0] + 9, o[1]);
+    ctx.moveTo(o[0], o[1] - 9); ctx.lineTo(o[0], o[1] + 9);
+    ctx.stroke();
+  }
+
+  /* 轨迹 */
+  if (showTrail && S.trail.length > 1) {
+    ctx.strokeStyle = 'rgba(29,95,216,.28)';
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    for (let i = 0; i < S.trail.length; i++) {
+      const p = toPx(S.trail[i].x, S.trail[i].y);
+      i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1]);
+    }
+    ctx.stroke();
+  }
+
+  drawChassis(ctx, toPx, scale);
+
+  /* 坐标图例 */
+  ctx.font = '11px ' + MONO;
+  ctx.fillStyle = '#75808f';
+  ctx.textAlign = 'left';
+  ctx.fillText('+x 前  ·  +y 左  ·  ωz 逆时针为正  ·  网格 0.1 m', 12, h - 12);
+
+  /* 比例尺：按可视宽度自动选 0.5 / 0.2 / 0.1 m，别让窄屏撑爆 */
+  let barM = 0.5;
+  while (barM * scale > 150 && barM > 0.1) barM = barM === 0.5 ? 0.2 : 0.1;
+  const barW = barM * scale;
+  const bx = w - 16 - barW, by = h - 16;
+  ctx.strokeStyle = 'rgba(90,102,120,.55)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(bx, by - 4); ctx.lineTo(bx, by);
+  ctx.lineTo(bx + barW, by); ctx.lineTo(bx + barW, by - 4);
+  ctx.stroke();
+  ctx.fillStyle = '#75808f';
+  ctx.font = '10.5px ' + MONO;
+  ctx.textAlign = 'center';
+  ctx.fillText((barM === 0.5 ? '0.5' : barM === 0.2 ? '0.2' : '0.1') + ' m', bx + barW / 2, by - 8);
+  ctx.textAlign = 'left';
+
+  /* 架空提示 */
+  if (!S.grounded) {
+    ctx.fillStyle = 'rgba(38,48,64,.82)';
+    roundRect(ctx, w - 148, 12, 136, 26, 7);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = '600 11.5px ' + UI;
+    ctx.textAlign = 'center';
+    ctx.fillText('架空：轮转车不动', w - 80, 29);
+  }
+}
+
+function drawChassis(ctx, toPx, scale) {
+  const [cx, cy] = toPx(S.x, S.y);
+
+  /* 指令方向（虚线）与实际运动方向（实线箭头） */
+  const cmdSpeed = Math.hypot(S.limited[0], S.limited[1]);
+  const actSpeed = Math.hypot(S.vx, S.vy);
+
+  const drawArrow = (vx, vy, color, dash, width) => {
+    const sp = Math.hypot(vx, vy);
+    if (sp < 0.04) return;
+    const len = Math.min(sp * 0.34, 0.62) * scale * 1.6;
+    const a = Math.atan2(-vy, vx);            // 屏幕 y 向下
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(a);
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = width;
+    if (dash) ctx.setLineDash(dash);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(len, 0);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(len + 7, 0);
+    ctx.lineTo(len - 2, -4.5);
+    ctx.lineTo(len - 2, 4.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  };
+
+  drawArrow(S.limited[0], S.limited[1], 'rgba(120,132,148,.85)', [4, 4], 1.6);
+  drawArrow(S.vx, S.vy, 'rgba(29,95,216,.9)', null, 2.2);
+
+  /* ================= 车体（俯视） ================= */
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(-S.theta);
+
+  /* 几何（米）：轮距/轴距取 chassis_config.h 的 0.40 m，轮径 2×0.077 */
+  const GEO = {
+    bx: 0.170,        // 底板半长
+    by: 0.150,        // 底板半宽
+    wx: 0.200,        // 轮心 x（半轴距）
+    wy: 0.200,        // 轮心 y（半轮距）
+    wwid: 0.056,      // 胎宽
+    rib: 0.024        // 辊子沿胎面间距
+  };
+  const bx = GEO.bx * scale, by = GEO.by * scale;
+  const wlen = TRUE_R * 2 * scale;
+  const wwid = Math.max(8, GEO.wwid * scale);
+
+  /* 轮架：从底板四角伸到轮心，轮子挂在外面，看得出是被"装"上去的 */
+  for (let idx = 0; idx < 4; idx++) {
+    const sx = (idx === 0 || idx === 1) ? 1 : -1;
+    const sy = (idx === 0 || idx === 2) ? 1 : -1;
+    const ax0 = sx * bx * 0.86, ay0 = -sy * by * 0.86;
+    const ax1 = sx * GEO.wx * scale, ay1 = -sy * GEO.wy * scale;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#1e2836';
+    ctx.lineWidth = Math.max(6, wwid * 0.56);
+    ctx.beginPath(); ctx.moveTo(ax0, ay0); ctx.lineTo(ax1, ay1); ctx.stroke();
+    ctx.strokeStyle = '#77869a';
+    ctx.lineWidth = Math.max(1.8, wwid * 0.18);
+    ctx.beginPath(); ctx.moveTo(ax0, ay0); ctx.lineTo(ax1, ay1); ctx.stroke();
+  }
+
+  /* 底板投影 */
+  ctx.fillStyle = 'rgba(20,28,40,.13)';
+  roundRect(ctx, -bx + 3, -by + 4, bx * 2, by * 2, 10);
+  ctx.fill();
+
+  /* 底板 */
+  const g = ctx.createLinearGradient(-bx, -by, bx, by);
+  g.addColorStop(0, '#3f4d66');
+  g.addColorStop(1, '#202939');
+  ctx.fillStyle = g;
+  roundRect(ctx, -bx, -by, bx * 2, by * 2, 10);
+  ctx.fill();
+  ctx.strokeStyle = '#131a24';
+  ctx.lineWidth = 1.3;
+  ctx.stroke();
+
+  /* 上盖板 */
+  ctx.fillStyle = 'rgba(255,255,255,.07)';
+  roundRect(ctx, -bx + 6, -by + 6, bx * 2 - 12, by * 2 - 12, 6);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.16)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  /* 侧向散热槽 */
+  ctx.strokeStyle = 'rgba(8,14,24,.34)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 4; i++) {
+    const x = -bx * 0.15 + i * (bx * 0.10);
+    ctx.beginPath();
+    ctx.moveTo(x, -by + 8);
+    ctx.lineTo(x, -by + 16);
+    ctx.moveTo(x, by - 8);
+    ctx.lineTo(x, by - 16);
+    ctx.stroke();
+  }
+
+  /* 螺栓 */
+  for (const [sx2, sy2] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    const px = sx2 * (bx - 9), py = sy2 * (by - 9);
+    ctx.beginPath();
+    ctx.arc(px, py, 2.6, 0, TAU);
+    ctx.fillStyle = '#9dabbd';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(8,14,24,.6)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  /* 中心：云台座 + 原点标记 */
+  ctx.beginPath();
+  ctx.arc(0, 0, Math.max(9, 0.055 * scale), 0, TAU);
+  ctx.fillStyle = 'rgba(12,18,28,.35)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(210,222,236,.45)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0, 0, Math.max(9, 0.055 * scale) * 0.55, 0, TAU);
+  ctx.strokeStyle = 'rgba(210,222,236,.22)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.7)';
+  ctx.beginPath();
+  ctx.arc(0, 0, 1.8, 0, TAU);
+  ctx.fill();
+
+  /* 车头（蓝箭头，伸出底板） */
+  ctx.fillStyle = '#5b9bff';
+  ctx.beginPath();
+  ctx.moveTo(bx + 11, 0);
+  ctx.lineTo(bx - 3, -8);
+  ctx.lineTo(bx - 3, 8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = 'rgba(91,155,255,.35)';
+  ctx.fillRect(bx - 3, -2, 4, 4);
+
+  /* 状态灯 */
+  const ledC = S.stopReason ? '#e0392b' : (S.armed ? '#12a15a' : '#2b6fe0');
+  ctx.fillStyle = ledC;
+  ctx.shadowColor = ledC;
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.arc(-bx + 11, -by + 11, 3.2, 0, TAU);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  /* 四个麦轮：轮体轴互相平行，45° 只体现在辊子上 */
+  for (let idx = 0; idx < 4; idx++) {
+    const sx = (idx === 0 || idx === 1) ? 1 : -1;      // 前 / 后
+    const sy = (idx === 0 || idx === 2) ? 1 : -1;      // 左 / 右
+    ctx.save();
+    ctx.translate(sx * GEO.wx * scale, -sy * GEO.wy * scale);
+
+    const half = wlen / 2, hw = wwid / 2;
+    const rad = Math.max(2, hw * 0.55);
+    const dir = (idx === 0 || idx === 3) ? 1 : -1;   // 对角同手、左右镜像
+
+    /* 投影 */
+    ctx.fillStyle = 'rgba(20,28,40,.16)';
+    roundRect(ctx, -half + 1, -hw + 3, wlen, wwid, rad);
+    ctx.fill();
+
+    /* 胎体：横向渐变，模拟圆柱面 */
+    const tg = ctx.createLinearGradient(0, -hw, 0, hw);
+    tg.addColorStop(0, '#5b6a83');
+    tg.addColorStop(0.42, '#2f3a4d');
+    tg.addColorStop(1, '#141b25');
+    ctx.fillStyle = tg;
+    roundRect(ctx, -half, -hw, wlen, wwid, rad);
+    ctx.fill();
+
+    /* 45° 辊子铺满胎面，按胎面行程滚动 */
+    ctx.save();
+    roundRect(ctx, -half, -hw, wlen, wwid, rad);
+    ctx.clip();
+
+    const travel = S.spin[idx] * TRUE_R;             // 胎面走过的距离
+    const step = GEO.rib * scale;
+    const off = (((travel % GEO.rib) + GEO.rib) % GEO.rib) * scale;
+    ctx.lineCap = 'butt';
+    for (let k = -9; k <= 9; k++) {
+      const x = k * step + off;
+      if (x < -half - wwid || x > half + wwid) continue;
+      /* 深色缝 + 亮色辊面，两层叠出"一条条圆柱"的观感；dir 决定斜向（对角同手、左右镜像） */
+      ctx.beginPath();
+      ctx.moveTo(x - dir * hw, -hw);
+      ctx.lineTo(x + dir * hw, hw);
+      ctx.lineWidth = Math.max(2.6, step * 0.62);
+      ctx.strokeStyle = 'rgba(9,14,21,.78)';
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x - dir * hw + dir * step * 0.10, -hw);
+      ctx.lineTo(x + dir * hw + dir * step * 0.10, hw);
+      ctx.lineWidth = Math.max(1.2, step * 0.34);
+      ctx.strokeStyle = 'rgba(176,196,220,.85)';
+      ctx.stroke();
+    }
+
+    /* 上下轮缘：一条亮线，让胎面边界清楚 */
+    ctx.fillStyle = 'rgba(10,16,24,.85)';
+    ctx.fillRect(-half, -hw, wlen, Math.max(1.4, hw * 0.16));
+    ctx.fillRect(-half, hw - Math.max(1.4, hw * 0.16), wlen, Math.max(1.4, hw * 0.16));
+    ctx.fillStyle = 'rgba(255,255,255,.22)';
+    ctx.fillRect(-half, -hw + Math.max(1.4, hw * 0.16), wlen, 1);
+    ctx.restore();
+
+    /* 轮毂：深色圆盘 + 随转速转的一根辐条 */
+    const hubR = Math.max(3.2, hw * 0.66);
+    ctx.beginPath();
+    ctx.arc(0, 0, hubR, 0, TAU);
+    ctx.fillStyle = '#0d141d';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(198,214,232,.72)';
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+    ctx.save();
+    ctx.rotate(S.spin[idx] % TAU);
+    ctx.strokeStyle = 'rgba(198,214,232,.55)';
+    ctx.lineWidth = Math.max(1, hw * 0.13);
+    ctx.beginPath();
+    ctx.moveTo(-hubR * 0.72, 0);
+    ctx.lineTo(hubR * 0.72, 0);
+    ctx.stroke();
+    ctx.restore();
+    ctx.beginPath();
+    ctx.arc(0, 0, Math.max(1, hw * 0.17), 0, TAU);
+    ctx.fillStyle = 'rgba(232,241,250,.9)';
+    ctx.fill();
+
+    /* 轮廓：电流饱和时变红 */
+    const sat = Math.abs(S.current[idx]) >= P.currentLimit * 0.97;
+    ctx.strokeStyle = sat ? '#e0392b' : 'rgba(96,112,134,.95)';
+    ctx.lineWidth = sat ? 1.9 : 1.2;
+    roundRect(ctx, -half, -hw, wlen, wwid, rad);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+/* =========================================================================
+ *  5. 示波器渲染
+ * ========================================================================= */
+
+function drawScope() {
+  const { ctx, w, h } = sb;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#fbfcfe';
+  ctx.fillRect(0, 0, w, h);
+
+  const padL = 46, padR = 52, padT = 12, padB = 15;
+  const innerW = w - padL - padR;
+  const innerH = h - padT - padB;
+  const topH = innerH * 0.63;
+  const midGap = 22;
+  const botY = padT + topH + midGap;
+  const botH = innerH - topH - midGap;
+
+  const now = S.time;
+  const t0 = now - SCOPE_WINDOW;
+  const X = (t) => padL + ((t - t0) / SCOPE_WINDOW) * innerW;
+
+  const sc = S.scope;
+  const i0 = sc.t.findIndex(t => t >= t0);
+  const start = i0 < 0 ? 0 : i0;
+
+  /* ---- 上图：RPM ---- */
+  let maxRpm = 400;
+  for (let i = start; i < sc.t.length; i++) {
+    maxRpm = Math.max(maxRpm, Math.abs(sc.tgt[i]), Math.abs(sc.act[i]));
+  }
+  maxRpm = Math.min(8000, Math.ceil(maxRpm * 1.18 / 250) * 250);
+
+  const Y1 = (v) => padT + topH - (clamp(v, -maxRpm, maxRpm) / maxRpm * 0.5 + 0.5) * topH;
+  const zero1 = Y1(0);
+
+  /* 网格 */
+  ctx.strokeStyle = '#e8edf5';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i <= 6; i++) {
+    const x = padL + (i / 6) * innerW;
+    ctx.moveTo(Math.round(x) + 0.5, padT);
+    ctx.lineTo(Math.round(x) + 0.5, padT + topH);
+    ctx.moveTo(Math.round(x) + 0.5, botY);
+    ctx.lineTo(Math.round(x) + 0.5, botY + botH);
+  }
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + (i / 4) * topH;
+    ctx.moveTo(padL, Math.round(y) + 0.5);
+    ctx.lineTo(padL + innerW, Math.round(y) + 0.5);
+  }
+  ctx.stroke();
+
+  /* 零线 */
+  ctx.strokeStyle = '#c9d2e0';
+  ctx.beginPath();
+  ctx.moveTo(padL, zero1 + 0.5);
+  ctx.lineTo(padL + innerW, zero1 + 0.5);
+  ctx.stroke();
+
+  /* 轮速上限参考线 */
+  if (P.maxMotorRpm <= maxRpm) {
+    ctx.strokeStyle = 'rgba(207,47,36,.35)';
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(padL, Y1(P.maxMotorRpm) + 0.5);
+    ctx.lineTo(padL + innerW, Y1(P.maxMotorRpm) + 0.5);
+    ctx.moveTo(padL, Y1(-P.maxMotorRpm) + 0.5);
+    ctx.lineTo(padL + innerW, Y1(-P.maxMotorRpm) + 0.5);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(207,47,36,.65)';
+    ctx.font = '10px ' + MONO;
+    ctx.textAlign = 'right';
+    ctx.fillText('+' + P.maxMotorRpm, padL - 6, Y1(P.maxMotorRpm) + 3);
+  }
+
+  /* 目标（虚线） */
+  const plot = (arr, Y, color, dash, width) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineJoin = 'round';
+    if (dash) ctx.setLineDash(dash);
+    ctx.beginPath();
+    let started = false;
+    for (let i = start; i < sc.t.length; i++) {
+      const x = X(sc.t[i]);
+      const y = Y(arr[i]);
+      started ? ctx.lineTo(x, y) : (ctx.moveTo(x, y), started = true);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  };
+
+  plot(sc.tgt, Y1, 'rgba(120,132,148,.85)', [5, 4], 1.6);
+  plot(sc.act, Y1, WC[S.scopeWheel], null, 2);
+
+  /* 上图坐标 */
+  ctx.font = '10px ' + MONO;
+  ctx.fillStyle = '#9aa4b2';
+  ctx.textAlign = 'right';
+  ctx.fillText('+' + maxRpm, padL - 6, padT + 9);
+  ctx.fillText('0', padL - 6, zero1 + 3);
+  ctx.fillText('-' + maxRpm, padL - 6, padT + topH - 1);
+  /* 轴标题放左上/左下的空白处，避免与刻度数字重叠 */
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#c2cbdb';
+  ctx.fillText('转速 / rpm', padL + 2, padT - 1);
+  ctx.fillText('电流 / C620 原始值', padL + 2, botY - 5);
+
+  /* 图例 */
+  ctx.textAlign = 'right';
+  ctx.fillStyle = 'rgba(120,132,148,.95)';
+  ctx.fillText('目标', padL + innerW - 52, padT + 10);
+  ctx.fillStyle = WC[S.scopeWheel];
+  ctx.font = '600 10px ' + MONO;
+  ctx.fillText('实测 ' + WN[S.scopeWheel], padL + innerW, padT + 10);
+
+  /* ---- 下图：电流 ---- */
+  const cLim = P.currentLimit;
+  const Y2 = (v) => botY + botH / 2 - (clamp(v, -cLim, cLim) / cLim) * (botH / 2) * 0.92;
+
+  ctx.strokeStyle = '#e8edf5';
+  ctx.beginPath();
+  for (let i = 0; i <= 4; i++) {
+    const y = botY + (i / 4) * botH;
+    ctx.moveTo(padL, Math.round(y) + 0.5);
+    ctx.lineTo(padL + innerW, Math.round(y) + 0.5);
+  }
+  ctx.stroke();
+
+  ctx.strokeStyle = '#c9d2e0';
+  ctx.beginPath();
+  ctx.moveTo(padL, Y2(0) + 0.5);
+  ctx.lineTo(padL + innerW, Y2(0) + 0.5);
+  ctx.stroke();
+
+  plot(sc.cur, Y2, '#c26a05', null, 1.7);
+
+  ctx.fillStyle = '#9aa4b2';
+  ctx.font = '10px ' + MONO;
+  ctx.textAlign = 'right';
+  ctx.fillText('+' + cLim, padL - 6, botY + 9);
+  ctx.fillText('-' + cLim, padL - 6, botY + botH - 1);
+  ctx.textAlign = 'left';
+
+  /* 时间轴 */
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#b3bcc9';
+  for (let i = 0; i <= 6; i++) {
+    const t = t0 + (i / 6) * SCOPE_WINDOW;
+    ctx.fillText(t.toFixed(1), padL + (i / 6) * innerW, h - 3);
+  }
+}
+
+/* =========================================================================
+ *  6. 摇杆渲染与交互
+ * ========================================================================= */
+
+const stick = { active: false, x: 0, y: 0 };     // x 右正、y 前正，范围 -1..1
+
+function drawStick() {
+  const { ctx, w, h } = stb;
+  ctx.clearRect(0, 0, w, h);
+  const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 4;
+
+  ctx.fillStyle = '#f7f9fc';
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fill();
+  ctx.strokeStyle = '#e3e7ee'; ctx.lineWidth = 1; ctx.stroke();
+
+  ctx.strokeStyle = '#e8edf5';
+  ctx.beginPath();
+  ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy);
+  ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R);
+  ctx.stroke();
+
+  ctx.strokeStyle = '#eef2f8';
+  ctx.beginPath(); ctx.arc(cx, cy, R * 0.62, 0, TAU); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, R * 0.3, 0, TAU); ctx.stroke();
+
+  /* 当前值 */
+  const kx = cx + stick.x * R * 0.86;
+  const ky = cy - stick.y * R * 0.86;
+
+  ctx.strokeStyle = 'rgba(29,95,216,.28)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(kx, ky); ctx.stroke();
+
+  ctx.fillStyle = '#fff';
+  ctx.shadowColor = 'rgba(16,24,40,.18)';
+  ctx.shadowBlur = 8;
+  ctx.beginPath(); ctx.arc(kx, ky, 11, 0, TAU); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = '#1d5fd8'; ctx.lineWidth = 2; ctx.stroke();
+
+  /* 方向标注 */
+  ctx.font = '9.5px ' + UI;
+  ctx.fillStyle = '#b3bcc9';
+  ctx.textAlign = 'center';
+  ctx.fillText('前', cx, 12);
+  ctx.fillText('后', cx, h - 4);
+  ctx.fillText('左', 10, cy + 3);
+  ctx.fillText('右', w - 10, cy + 3);
+}
+
+/* =========================================================================
+ *  7. DOM 构建
+ * ========================================================================= */
+
+const MONO = '"SF Mono","JetBrains Mono",Consolas,monospace';
+const UI = '-apple-system,"Segoe UI","Microsoft YaHei",sans-serif';
+
+/* ---- 四轮仪表 ---- */
+const wheelsEl = document.getElementById('wheels');
+const wheelCells = [];
+for (let i = 0; i < 4; i++) {
+  const d = document.createElement('div');
+  d.className = 'wg';
+  d.innerHTML =
+    '<div class="bar-top"><span class="dot" style="background:' + WC[i] + '"></span>' +
+    WN[i] + ' ' + WZH[i] + '<span class="id" id="wid' + i + '">ID' + F.ids[i] + '</span></div>' +
+    '<div class="big"><span id="wrpm' + i + '">0</span><i>rpm</i></div>' +
+    '<div class="track"><div class="fill" id="wfill' + i + '" style="background:' + WC[i] + '"></div></div>' +
+    '<div class="sub"><span id="wtgt' + i + '">目标 0</span><span id="wcur' + i + '">0</span></div>' +
+    '<div class="sat"></div>';
+  wheelsEl.appendChild(d);
+  wheelCells.push({
+    rpm: d.querySelector('#wrpm' + i), fill: d.querySelector('#wfill' + i),
+    tgt: d.querySelector('#wtgt' + i), cur: d.querySelector('#wcur' + i),
+    id: d.querySelector('#wid' + i), root: d
+  });
+}
+
+/* ---- 参数滑块 ---- */
+const PARAM_GROUPS = [
+  {
+    g: '速度 PID（每轮独立）',
+    items: [
+      ['kp', 'Kp', '误差 1 rpm 的 P 增益', 0, 40, 0.5, v => v.toFixed(1)],
+      ['ki', 'Ki', '按秒积分，消除静差', 0, 400, 1, v => v.toFixed(0)],
+      ['kd', 'Kd', '电流/(rpm·s⁻¹)，>0.1 易发散', 0, 0.2, 0.005, v => v.toFixed(3)],
+      ['integralLimit', 'I 限幅', '积分项上限', 0, 16384, 100, v => v.toFixed(0)]
+    ]
+  },
+  {
+    g: '限幅与规划',
+    items: [
+      ['currentLimit', '电流上限', '转矩电流，4000≈4.88 A', 200, 16384, 100, v => v.toFixed(0)],
+      ['maxMotorRpm', '轮速上限', 'MAX_MOTOR_RPM，卡住最高车速', 500, 8000, 100, v => v.toFixed(0)],
+      ['maxAccel', '平移加速度', '0→3 m/s 约 2 s', 0.2, 8, 0.1, v => v.toFixed(1)],
+      ['maxAngAccel', '角加速度', 'rad/s²', 0.5, 20, 0.25, v => v.toFixed(2)],
+      ['maxVx', '前后上限', '只是目标上限', 0.2, 6, 0.1, v => v.toFixed(1)],
+      ['maxVy', '平移上限', '只是目标上限', 0.2, 6, 0.1, v => v.toFixed(1)],
+      ['maxWz', '自转上限', 'rad/s', 0.2, 8, 0.1, v => v.toFixed(1)],
+      ['topSpin', '小陀螺', 'TOP_SPIN_RADPS', 0.5, 5, 0.1, v => v.toFixed(1)]
+    ]
+  },
+  {
+    g: '车体几何（标定）',
+    items: [
+      ['wheelRadius', '轮半径', 'm，不是直径', 0.03, 0.2, 0.001, v => v.toFixed(3)],
+      ['wheelbase', '轴距 L', 'm', 0.2, 0.8, 0.01, v => v.toFixed(2)],
+      ['track', '轮距 W', 'm', 0.2, 0.8, 0.01, v => v.toFixed(2)]
+    ]
+  }
+];
+
+const pgEl = document.getElementById('param-groups');
+const paramRefs = {};
+for (const grp of PARAM_GROUPS) {
+  const wrap = document.createElement('div');
+  wrap.className = 'pgroup';
+  const h = document.createElement('div');
+  h.className = 'pgroup-h';
+  h.textContent = grp.g;
+  wrap.appendChild(h);
+
+  for (const it of grp.items) {
+    const [key, label, tip, min, max, step, fmt] = it;
+    const row = document.createElement('div');
+    row.className = 'prow';
+    row.innerHTML =
+      '<div class="pl" title="' + label + ' · ' + tip + '">' + label + '</div>' +
+      '<input class="pslider" type="range" id="ps-' + key + '" min="' + min + '" max="' + max +
+      '" step="' + step + '" value="' + P[key] + '" title="' + tip + '">' +
+      '<div class="pv" id="pv-' + key + '">' + fmt(P[key]) + '</div>';
+    wrap.appendChild(row);
+    const slider = row.querySelector('input');
+    const out = row.querySelector('.pv');
+    slider.addEventListener('input', () => {
+      P[key] = parseFloat(slider.value);
+      out.textContent = fmt(P[key]);
+      saveParams();
+    });
+    paramRefs[key] = { slider, out, fmt };
+  }
+  pgEl.appendChild(wrap);
+}
+
+/* ---- 0x200 报文条：字节组按电调 ID 排，不按轮位排 ---- */
+const canFrameEl = document.getElementById('can-frame');
+const canCells = [];
+for (let k = 0; k < 4; k++) {
+  const d = document.createElement('div');
+  d.className = 'canbyte';
+  d.innerHTML =
+    '<span class="id">ID' + (k + 1) + '</span>' +
+    '<span class="val">0</span>' +
+    '<span class="wh">—</span>';
+  canFrameEl.appendChild(d);
+  canCells.push({ val: d.querySelector('.val'), wh: d.querySelector('.wh'), root: d });
+}
+
+function updateCanFrame() {
+  const map = slotToPhys();
+  for (const c of canCells) {
+    c.val.textContent = '0';
+    c.wh.textContent = '空';
+    c.root.className = 'canbyte';
+    c.root.removeAttribute('title');
+  }
+  for (let i = 0; i < 4; i++) {
+    const k = F.ids[i] - 1;                 // 字节偏移 = (电调ID-1)*2
+    const phys = map[i];
+    const cell = canCells[k];
+    if (!cell) continue;
+    const v = phys >= 0 ? S.current[phys] : 0;
+    const u16 = v < 0 ? (v + 65536) : v;
+    const hex = u16.toString(16).toUpperCase().padStart(4, '0');
+    cell.val.textContent = (v > 0 ? '+' : '') + v.toFixed(0);
+    cell.wh.textContent = phys >= 0 ? WN[phys] + ' ' + WZH[phys] : 'ID 重复';
+    cell.root.title = '0x' + hex.slice(0, 2) + ' 0x' + hex.slice(2) +
+      '　来源槽位 ' + WN[i];
+    if (Math.abs(v) >= P.currentLimit * 0.97) cell.root.classList.add('hot');
+  }
+}
+
+/* ---- 四轮方向自检（0.6.2 §5 的三组约定） ---- */
+const DIR_CASES = [
+  { name: '前进 vx>0', v: [1, 0, 0], exp: [1, 1, 1, 1] },
+  { name: '左移 vy>0', v: [0, 1, 0], exp: [-1, 1, 1, -1] },
+  { name: '逆时针 wz>0', v: [0, 0, 1], exp: [-1, 1, -1, 1] }
+];
+const dirBody = document.getElementById('dir-body');
+const dirCells = DIR_CASES.map(c => {
+  const tr = document.createElement('tr');
+  const td0 = document.createElement('td');
+  td0.textContent = c.name;
+  tr.appendChild(td0);
+  const cells = [];
+  for (let i = 0; i < 4; i++) {
+    const td = document.createElement('td');
+    const dc = document.createElement('div');
+    dc.className = 'dc';
+    const b = document.createElement('b');
+    b.textContent = c.exp[i] > 0 ? '+' : '−';
+    const it = document.createElement('i');
+    it.textContent = '?';
+    dc.appendChild(b);
+    dc.appendChild(it);
+    td.appendChild(dc);
+    tr.appendChild(td);
+    cells.push({ dc, it });
+  }
+  dirBody.appendChild(tr);
+  return cells;
+});
+
+function refreshDirTable() {
+  const g = geom();
+  const map = slotToPhys();
+  let pass = 0, total = 0;
+  DIR_CASES.forEach((c, r) => {
+    const base = [
+      c.v[0] - c.v[1] - g.k * c.v[2],
+      c.v[0] + c.v[1] + g.k * c.v[2],
+      c.v[0] + c.v[1] - g.k * c.v[2],
+      c.v[0] - c.v[1] + g.k * c.v[2]
+    ];
+    /* 同一条链：解算 → 乘安装符号 → 电机转向 → 真实安装方向 → 物理轮
+     * 电机命令 = 轮向 × 安装符号；真实安装方向再把转子转向换回轮向，
+     * 配置对时两者相消，剩下解算结果本身；配置错时该轮方向翻转。 */
+    const phys = [0, 0, 0, 0];
+    for (let i = 0; i < 4; i++) {
+      const s = Math.sign(base[i]) * F.signs[i] * TRUE_MOUNT[i];
+      const j = map[i];
+      if (j >= 0) phys[j] = s;
+    }
+    for (let j = 0; j < 4; j++) {
+      const cell = dirCells[r][j];
+      const ok = phys[j] === c.exp[j];
+      cell.it.textContent = phys[j] > 0 ? '+' : (phys[j] < 0 ? '−' : '0');
+      cell.dc.classList.toggle('ok', ok);
+      cell.dc.classList.toggle('bad', !ok);
+      total++;
+      if (ok) pass++;
+    }
+  });
+  const sum = document.getElementById('dir-sum');
+  sum.className = 'vsum ' + (pass === total ? 'ok' : 'bad');
+  sum.textContent = pass === total
+    ? pass + ' / ' + total + ' 一致 · 轮位、安装符号与解算方向都对得上'
+    : pass + ' / ' + total + ' 一致 · 先查 WHEEL_MOTOR_SIGNS 与 WHEEL_CAN_IDS，不要改解算公式';
+}
+
+/* ---- 反馈帧索引 ----
+ * 每一行是一个物理轮位，反馈帧来自装在该轮位上的电调，
+ * 所以这里要反查：先看哪个槽位的电调正好落在这个轮位，再取它的 ID。 */
+function escIdOfWheel(j) {
+  const k = slotToPhys().indexOf(j);
+  return k >= 0 ? F.ids[k] : 0;
+}
+const fbBody = document.getElementById('fb-body');
+const fbRows = [];
+for (let i = 0; i < 4; i++) {
+  const tr = document.createElement('tr');
+  tr.innerHTML =
+    '<td style="color:' + WC[i] + ';font-weight:600">' + WN[i] + ' ' + WZH[i] + '</td>' +
+    '<td>0x' + (0x200 + escIdOfWheel(i)).toString(16).toUpperCase() + '</td>' +
+    '<td>0</td><td>—</td>';
+  fbBody.appendChild(tr);
+  const tds = tr.querySelectorAll('td');
+  fbRows.push({ sid: tds[1], rpm: tds[2], on: tds[3] });
+}
+
+/* ---- 安装方向 chips ---- */
+const signChips = document.getElementById('sign-chips');
+for (let i = 0; i < 4; i++) {
+  const b = document.createElement('button');
+  b.className = 'chip';
+  b.dataset.w = i;
+  b.addEventListener('click', () => {
+    F.signs[i] = F.signs[i] === 1 ? -1 : 1;
+    S.preset = null;
+    syncFaultUI();
+  });
+  signChips.appendChild(b);
+}
+
+/* ---- 电机离线 chips ---- */
+const offlineChips = document.getElementById('offline-chips');
+for (let i = 0; i < 4; i++) {
+  const b = document.createElement('button');
+  b.className = 'chip';
+  b.dataset.w = i;
+  b.addEventListener('click', () => {
+    F.motorOffline[i] = !F.motorOffline[i];
+    S.preset = null;
+    syncFaultUI();
+  });
+  offlineChips.appendChild(b);
+}
+
+/* ---- 验收清单 ---- */
+const CHECKS = [
+  ['架空、会关断', '第一次运行四轮离地，先学会关使能与断电'],
+  ['供电与线序', 'C620 24V 先查极性；三相线与 7-pin 数据线都要接'],
+  ['CAN1 接法', '四个电调接 CAN1 的 2-pin 口：Pin1=CANL、Pin2=CANH，H 对 H'],
+  ['终端电阻', '断电量 H-L 约 60Ω；四个电调的电阻开关不能全拨 ON'],
+  ['电调 ID', 'SET 键设成 LF1 / RF4 / LR2 / RR3，绿灯每周期闪 N 次'],
+  ['源码 ID 宏', '改 WHEEL_CAN_IDS 不等于改电调 ID，两边必须一致'],
+  ['轮半径', '填 0.077（半径），填 0.154 会让所有轮速减半'],
+  ['不使能看反馈', 'cycles 约 500/s、cycle_ms 约 2、四轮 received 都为 1'],
+  ['停止位', 'stop_reason=0、armed=0；手转轮子 speed_rpm 有变化'],
+  ['单轮测试', 'CH5 给 400 rpm，只有该轮有电流，其余轮可手转'],
+  ['轮向符号', '目标与实测 RPM 同号；反了只改该轮 WHEEL_MOTOR_SIGNS'],
+  ['四轮前进', 'LF / RF / LR / RR 全部为 +'],
+  ['四轮左移', '符号应为 − + + −'],
+  ['四轮逆时针', '符号应为 − + − +'],
+  ['落地低速', '前后、左右、旋转、斜向、叠加逐项跑并记录目标与反馈'],
+  ['停机与恢复', 'CH6 OFF、关遥控器、缺一路反馈：一个周期内零电流']
+];
+const checkGrid = document.getElementById('check-grid');
+let checkState = new Array(CHECKS.length).fill(false);
+try {
+  const saved = JSON.parse(localStorage.getItem('mecanum-check') || 'null');
+  if (Array.isArray(saved) && saved.length === CHECKS.length) checkState = saved;
+} catch (e) { /* ignore */ }
+
+CHECKS.forEach((c, i) => {
+  const row = document.createElement('label');
+  row.className = 'chk';
+  row.innerHTML =
+    '<input type="checkbox" ' + (checkState[i] ? 'checked' : '') + '>' +
+    '<span class="cname">' + c[0] + '<small>' + c[1] + '</small></span>' +
+    '<span class="cbox" data-cb="' + i + '">' + (checkState[i] ? '通过' : '待填') + '</span>';
+  const cb = row.querySelector('input');
+  cb.addEventListener('change', () => {
+    checkState[i] = cb.checked;
+    row.querySelector('.cbox').textContent = cb.checked ? '通过' : '待填';
+    updateCheckProgress();
+    try { localStorage.setItem('mecanum-check', JSON.stringify(checkState)); } catch (e) { }
+  });
+  checkGrid.appendChild(row);
+});
+function updateCheckProgress() {
+  const n = checkState.filter(Boolean).length;
+  document.getElementById('check-progress').textContent = n + ' / ' + CHECKS.length;
+}
+updateCheckProgress();
+
+document.getElementById('btn-check-reset').addEventListener('click', () => {
+  checkState = new Array(CHECKS.length).fill(false);
+  checkGrid.querySelectorAll('input').forEach((cb, i) => {
+    cb.checked = false;
+    checkGrid.querySelector('[data-cb="' + i + '"]').textContent = '待填';
+  });
+  updateCheckProgress();
+  try { localStorage.setItem('mecanum-check', JSON.stringify(checkState)); } catch (e) { }
+});
+
+/* =========================================================================
+ *  8. 交互
+ * ========================================================================= */
+
+const rotInput = document.getElementById('rot');
+const rotVal = document.getElementById('rot-val');
+
+rotInput.addEventListener('input', () => {
+  cancelScript();
+  S.rc.rotate = parseFloat(rotInput.value);
+  rotVal.textContent = S.rc.rotate.toFixed(2);
+});
+
+/* ---- 开关 ---- */
+function setSwitch(name, on) {
+  const el = document.querySelector('.switch[data-sw="' + name + '"]');
+  if (!el) return;
+  el.classList.toggle('on', on);
+  if (name === 'enable') S.rc.enabled = on;
+  if (name === 'top') S.rc.top = on;
+  if (name === 'test') S.rc.testMode = on;
+}
+document.querySelectorAll('.switch[data-sw]').forEach(el => {
+  el.addEventListener('click', () => {
+    const name = el.dataset.sw;
+    const on = !el.classList.contains('on');
+    setSwitch(name, on);
+  });
+});
+
+/* ---- 架空 / 轨迹 ---- */
+let showTrail = true;
+const swAir = document.getElementById('sw-air');
+swAir.addEventListener('click', () => {
+  S.grounded = !S.grounded;
+  swAir.classList.toggle('on', !S.grounded);
+});
+const swTrail = document.getElementById('sw-trail');
+swTrail.addEventListener('click', () => {
+  showTrail = !showTrail;
+  swTrail.classList.toggle('on', showTrail);
+});
+
+/* ---- 测试轮 / 示波器轮 选择 ---- */
+function bindSeg(id, cb) {
+  const seg = document.getElementById(id);
+  seg.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      seg.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      cb(parseInt(btn.dataset.w, 10));
+    });
+  });
+}
+bindSeg('seg-test', w => { S.testWheel = w; syncTestInfo(); });
+bindSeg('seg-scope', w => {
+  S.scopeWheel = w;
+  S.scope = { t: [], tgt: [], act: [], cur: [] };
+  document.getElementById('cg-wheel').textContent = WN[w];
+});
+
+/* 单轮测试来源：遥控 CH5 给固定 400 rpm；编译期那套走摇杆、上限 300 rpm */
+document.getElementById('sel-testsrc').addEventListener('change', e => {
+  S.testSrc = e.target.value;
+  syncTestInfo();
+});
+
+/* CH7/CH8 是两位开关，组合出电调 ID 1~4，程序再按 WHEEL_CAN_IDS 反查轮位 */
+const TEST_CH78 = ['低·低', '高·低', '低·高', '高·高'];
+function syncTestInfo() {
+  const id = F.ids[S.testWheel];
+  const el2 = document.getElementById('test-info');
+  const tail = '<br><span style="color:var(--faint)">纯 P 环（Ki=0）必有静差：实测会低于目标，' +
+    '低速段占比更大，不是轮子带不动。</span>';
+  if (S.testSrc === 'build') {
+    el2.innerHTML = '<b>编译期优先</b>：SINGLE_WHEEL_TEST=1 时 CH5 不再起作用；摇杆 × 300 rpm，做完记得改回 0 重烧。' + tail;
+  } else {
+    el2.innerHTML = 'CH7/CH8 = <b>' + TEST_CH78[id - 1] + '</b> → 电调 ID' + id +
+      ' → 轮位 ' + WN[S.testWheel] + '；只给该轮 <b>400 rpm 原始正转</b>（不乘安装符号），其余轮零电流。' + tail;
+  }
+}
+
+/* ---- 阶跃序列 ---- */
+document.querySelectorAll('[data-script]').forEach(b => {
+  b.addEventListener('click', () => runScript(b.dataset.script));
+});
+
+/* ---- 故障 chips ---- */
+document.querySelectorAll('#link-chips .chip').forEach(b => {
+  b.addEventListener('click', () => {
+    const k = b.dataset.fault;
+    F[k] = !F[k];
+    S.preset = null;
+    syncFaultUI();
+  });
+});
+document.getElementById('chip-radius').addEventListener('click', () => {
+  F.radiusAsDiameter = !F.radiusAsDiameter;
+  S.preset = null;
+  syncFaultUI();
+});
+document.getElementById('sel-ids').addEventListener('change', e => {
+  F.ids = e.target.value.split(',').map(Number);
+  S.preset = null;
+  syncFaultUI();
+  syncTestInfo();
+});
+
+/* ---- 故障场景预设 ----
+ * 每套场景都从「出厂正常」出发再叠加单一错误，保证现象可归因；
+ * 同时把车体归位，否则上一场景的轨迹和积分会让判断变迷糊。 */
+const PRESETS = {
+  ok: {
+    name: '出厂正常',
+    f: {},
+    note: '符号与 ID 都对：前进四轮同向、左移 −++−、逆时针 −+−+。纯 P 环仍有约 −10% 静差，这是 Ki=0 的必然结果，不是轮子带不动。'
+  },
+  ids: {
+    name: 'ID 错线',
+    f: { ids: [4, 1, 2, 3] },
+    note: '左右前轮电调互换：前进时四轮互相抵消，<b>整车不动</b>，但左移反而正常——最容易被误判成「电机没力 / PID 太弱」的故障。'
+  },
+  sign: {
+    name: '左前反转',
+    f: { signs: [-1, -1, 1, -1] },
+    note: '只翻反 LF 的 WHEEL_MOTOR_SIGNS：前进时该轮倒转，车向右前斜跑并持续偏航；自检表「前进」一行只有 3/4 一致。'
+  },
+  radius: {
+    name: '半径填直径',
+    f: { radius: true },
+    note: 'WHEEL_RADIUS_M 填成 0.154（直径）：to_rpm 只剩一半，同样指令下四轮只按半速转。注意打满摇杆时两种配置都会被 3000 rpm 限住，<b>看不出差别</b>——要用 1 m/s 以内的低速指令才暴露。'
+  },
+  lost: {
+    name: '遥控失联',
+    f: { rcLost: true },
+    note: 'stop_reason=1（bit0）：整机强制停机，四轮零电流、目标清零。链路恢复后必须重新合 CH6，不会自己恢复。'
+  }
+};
+
+function setPresetNote(key) {
+  const box = document.getElementById('preset-note');
+  if (!box) return;
+  if (!key) {
+    box.className = 'verdict';
+    box.innerHTML = '<span class="vt">未加载</span><span>选一个场景，配置会立刻生效并重置车体；看清现象再手动对照下方开关。</span>';
+    return;
+  }
+  const p = PRESETS[key];
+  box.className = 'verdict ' + (key === 'ok' ? 'ok' : 'bad');
+  box.innerHTML = '<span class="vt">' + p.name + '</span><span>' + p.note + '</span>';
+}
+
+function applyPreset(key) {
+  const p = PRESETS[key];
+  if (!p) return;
+  F.signs = [1, -1, 1, -1];
+  F.ids = [1, 4, 2, 3];
+  F.radiusAsDiameter = false;
+  F.motorOffline = [false, false, false, false];
+  F.rcLost = F.canError = F.cycleOverrun = false;
+
+  const d = p.f;
+  if (d.signs) F.signs = d.signs.slice();
+  if (d.ids) F.ids = d.ids.slice();
+  if (d.radius) F.radiusAsDiameter = true;
+  if (d.off) F.motorOffline = d.off.slice();
+  if (d.rcLost) F.rcLost = true;
+  if (d.canError) F.canError = true;
+  if (d.overrun) F.cycleOverrun = true;
+
+  S.preset = key;
+  resetSim();
+  syncFaultUI();
+  syncTestInfo();
+  setPresetNote(key);
+}
+
+document.querySelectorAll('#preset-chips .chip').forEach(b => {
+  b.addEventListener('click', () => applyPreset(b.dataset.preset));
+});
+
+function clearFaults() {
+  F.signs = [1, -1, 1, -1];
+  F.ids = [1, 4, 2, 3];
+  F.radiusAsDiameter = false;
+  F.motorOffline = [false, false, false, false];
+  F.rcLost = F.canError = F.cycleOverrun = false;
+  S.preset = null;
+  syncFaultUI();
+  syncTestInfo();
+  setPresetNote(null);
+}
+document.getElementById('btn-clear-faults').addEventListener('click', clearFaults);
+
+function syncFaultUI() {
+  signChips.querySelectorAll('.chip').forEach((b, i) => {
+    const ok = F.signs[i] === TRUE_MOUNT[i];
+    b.textContent = WN[i] + ' ' + (F.signs[i] > 0 ? '+1' : '−1');
+    b.classList.toggle('on', !ok);
+  });
+  offlineChips.querySelectorAll('.chip').forEach((b, i) => {
+    b.textContent = WN[i];
+    b.classList.toggle('on', F.motorOffline[i]);
+  });
+  document.querySelectorAll('#link-chips .chip').forEach(b => {
+    b.classList.toggle('on', F[b.dataset.fault]);
+  });
+  document.querySelectorAll('#preset-chips .chip').forEach(b => {
+    b.classList.toggle('on', S.preset !== null && b.dataset.preset === S.preset);
+  });
+  const sel = document.getElementById('sel-ids');
+  const idsVal = F.ids.join(',');
+  if (sel && [...sel.options].some(o => o.value === idsVal)) sel.value = idsVal;
+  document.getElementById('chip-radius').classList.toggle('on', F.radiusAsDiameter);
+  for (let i = 0; i < 4; i++) {
+    wheelCells[i].id.textContent = 'ID' + F.ids[i];
+    fbRows[i].sid.textContent = '0x' + (0x200 + escIdOfWheel(i)).toString(16).toUpperCase();
+  }
+  refreshDirTable();
+}
+syncFaultUI();
+
+/* ---- 顶栏 ---- */
+const btnRun = document.getElementById('btn-run');
+
+function toggleRun(force) {
+  S.running = typeof force === 'boolean' ? force : !S.running;
+  btnRun.textContent = S.running ? '暂停' : '继续';
+  btnRun.classList.toggle('primary', S.running);
+  btnRun.title = S.running ? '暂停仿真（P）' : '继续仿真（P）';
+}
+
+/* 归位：车体、PID、示波器、轨迹、相机全部回到起点，但不动配置与故障 */
+function resetSim() {
+  S.x = S.y = S.theta = 0;
+  S.vx = S.vy = S.wz = 0;
+  S.rpm = [0, 0, 0, 0];
+  S.meas = [0, 0, 0, 0];
+  S.current = [0, 0, 0, 0];
+  S.spin = [0, 0, 0, 0];
+  S.command = [0, 0, 0];
+  S.limited = [0, 0, 0];
+  S.targetSlot = [0, 0, 0, 0];
+  S.targetPhys = [0, 0, 0, 0];
+  S.trail = [];
+  S.scope = { t: [], tgt: [], act: [], cur: [] };
+  S.lastSample = -1;
+  S.script = null;
+  S.testSlot = -1;
+  S.testPhys = -1;
+  S.testCmd = 0;
+  S.prevTestWheel = -1;
+  resetAllPids();
+  cam.x = cam.y = 0;
+}
+
+btnRun.addEventListener('click', () => toggleRun());
+document.getElementById('btn-reset').addEventListener('click', resetSim);
+document.getElementById('sel-speed').addEventListener('change', e => {
+  S.speedScale = parseFloat(e.target.value);
+});
+document.getElementById('btn-defaults').addEventListener('click', () => {
+  Object.assign(P, DEFAULTS);
+  for (const k in paramRefs) {
+    paramRefs[k].slider.value = P[k];
+    paramRefs[k].out.textContent = paramRefs[k].fmt(P[k]);
+  }
+  try { localStorage.removeItem(PARAM_KEY); } catch (e) { }
+});
+
+/* ---- 摇杆拖拽 ---- */
+const stickRect = () => stickCv.getBoundingClientRect();
+function stickFromEvent(e) {
+  const r = stickRect();
+  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  const R = Math.min(r.width, r.height) / 2 * 0.86;
+  let dx = (e.clientX - cx) / R;
+  let dy = -(e.clientY - cy) / R;
+  const mag = Math.hypot(dx, dy);
+  if (mag > 1) { dx /= mag; dy /= mag; }
+  stick.x = dx;
+  stick.y = dy;
+}
+stickCv.addEventListener('pointerdown', e => {
+  stick.active = true;
+  stickCv.setPointerCapture(e.pointerId);
+  cancelScript();
+  stickFromEvent(e);
+});
+stickCv.addEventListener('pointermove', e => {
+  if (!stick.active) return;
+  stickFromEvent(e);
+});
+const stickRelease = () => {
+  stick.active = false;
+  stick.x = stick.y = 0;
+};
+stickCv.addEventListener('pointerup', stickRelease);
+stickCv.addEventListener('pointercancel', stickRelease);
+stickCv.addEventListener('pointerleave', () => { if (stick.active) stickRelease(); });
+
+/* ---- 键盘 ---- */
+const keys = new Set();
+window.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
+    if (k === 'escape') e.target.blur();
+    return;
+  }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+  if (k === ' ') {
+    e.preventDefault();
+    cancelScript();
+    setSwitch('enable', !S.rc.enabled);
+    return;
+  }
+  if (k === 'p') { if (!e.repeat) toggleRun(); return; }
+  if (k === 'r') { if (!e.repeat) resetSim(); return; }
+  if (k === 'escape') { if (!e.repeat) clearFaults(); return; }
+  if (k >= '1' && k <= '4') {
+    if (!e.repeat) {
+      const btns = document.querySelectorAll('#seg-scope button');
+      const b = btns[parseInt(k, 10) - 1];
+      if (b) b.click();
+    }
+    return;
+  }
+  if (['w', 'a', 's', 'd', 'q', 'e'].includes(k)) {
+    e.preventDefault();
+    cancelScript();
+    keys.add(k);
+  }
+});
+window.addEventListener('keyup', e => { keys.delete(e.key.toLowerCase()); });
+window.addEventListener('blur', () => keys.clear());
+
+/* ---- 波形导出：留一份可回看的调车记录 ---- */
+document.getElementById('btn-export').addEventListener('click', () => {
+  const sc = S.scope;
+  const w = S.scopeWheel;
+  if (sc.t.length < 2) {
+    document.getElementById('btn-export').textContent = '暂无数据';
+    setTimeout(() => { document.getElementById('btn-export').textContent = '导出 CSV'; }, 900);
+    return;
+  }
+  const lines = ['t_s,target_rpm,actual_rpm,current_raw,current_A'];
+  for (let i = 0; i < sc.t.length; i++) {
+    lines.push([
+      sc.t[i].toFixed(3),
+      sc.tgt[i].toFixed(1),
+      sc.act[i].toFixed(1),
+      sc.cur[i].toFixed(0),
+      (sc.cur[i] * CURRENT_A_PER_LSB).toFixed(3)
+    ].join(','));
+  }
+  const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'mecanum_' + WN[w] + '_Kp' + P.kp + '_Ki' + P.ki + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+});
+
+/* ---- 建议路径 → 分区跳转（顶栏吸顶，需留出遮挡高度） ---- */
+document.querySelectorAll('.hintbar .jump').forEach(s => {
+  const go = () => {
+    const t = document.getElementById(s.dataset.goto);
+    if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  s.addEventListener('click', go);
+  s.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+  });
+});
+
+/* =========================================================================
+ *  9. 手算面板
+ * ========================================================================= */
+
+const ciVx = document.getElementById('ci-vx');
+const ciVy = document.getElementById('ci-vy');
+const ciWz = document.getElementById('ci-wz');
+const calcBody = document.getElementById('calc-body');
+const calcFormula = document.getElementById('calc-formula');
+
+function updateCalc() {
+  const g = geom();
+  const vx = parseFloat(ciVx.value) || 0;
+  const vy = parseFloat(ciVy.value) || 0;
+  const wz = parseFloat(ciWz.value) || 0;
+
+  const base = [
+    vx - vy - g.k * wz,
+    vx + vy + g.k * wz,
+    vx + vy - g.k * wz,
+    vx - vy + g.k * wz
+  ];
+  const raw = base.map(v => v * g.toRpmCfg);
+  let peak = 0;
+  for (const r of raw) peak = Math.max(peak, Math.abs(r));
+  const scale = peak > P.maxMotorRpm ? P.maxMotorRpm / peak : 1;
+
+  calcFormula.textContent =
+    'to_rpm = 60·i/(2π·r) = 60·' + g.gear.toFixed(3) + '/(2π·' + g.rCfg.toFixed(3) + ') = ' +
+    g.toRpmCfg.toFixed(1) + '\n' +
+    'k = (L+W)/2 = (' + P.wheelbase.toFixed(2) + '+' + P.track.toFixed(2) + ')/2 = ' + g.k.toFixed(3) + ' m\n' +
+    (scale < 1
+      ? 'peak = ' + peak.toFixed(0) + ' > ' + P.maxMotorRpm + ' → 统一缩放 ' + scale.toFixed(3)
+      : 'peak = ' + peak.toFixed(0) + ' ≤ ' + P.maxMotorRpm + ' → 无需缩放');
+
+  calcBody.innerHTML = base.map((b, i) =>
+    '<tr><td style="color:' + WC[i] + ';font-weight:600">' + WN[i] + '</td>' +
+    '<td>' + b.toFixed(3) + ' m/s</td>' +
+    '<td>' + raw[i].toFixed(0) + '</td>' +
+    '<td>' + (raw[i] * scale).toFixed(0) + '</td></tr>'
+  ).join('');
+}
+[ciVx, ciVy, ciWz].forEach(el => el.addEventListener('input', updateCalc));
+document.getElementById('btn-fill-calc').addEventListener('click', () => {
+  ciVx.value = S.command[0].toFixed(2);
+  ciVy.value = S.command[1].toFixed(2);
+  ciWz.value = S.command[2].toFixed(2);
+  updateCalc();
+});
+
+/* =========================================================================
+ * 10. UI 刷新
+ * ========================================================================= */
+
+const el = id => document.getElementById(id);
+
+function updateUI() {
+  /* 顶栏状态 */
+  const led = el('led');
+  const ledText = el('led-text');
+  if (S.stopReason) {
+    led.className = 'led bad'; ledText.textContent = '停机 · stop_reason=' + S.stopReason;
+    el('pill-led').className = 'pill bad';
+  } else if (S.armed) {
+    led.className = 'led ok'; ledText.textContent = '已使能';
+    el('pill-led').className = 'pill ok';
+  } else {
+    led.className = 'led wait'; ledText.textContent = '待使能（CH6）';
+    el('pill-led').className = 'pill wait';
+  }
+  el('v-arm').textContent = S.armed ? '1' : '0';
+  el('v-stop').textContent = S.stopReason;
+  el('pill-stop').className = 'pill mono' + (S.stopReason ? ' bad' : '');
+  el('v-cycle').textContent = S.cycleMs;
+  el('v-time').textContent = S.time.toFixed(2);
+
+  /* 位掩码 */
+  for (let b = 0; b < 4; b++) {
+    el('bit' + b).classList.toggle('on', (S.stopReason >> b) & 1);
+  }
+
+  /* 四轮 */
+  for (let i = 0; i < 4; i++) {
+    const c = wheelCells[i];
+    const tgt = S.targetPhys[i];
+    const act = S.rpm[i];
+    const cur = S.current[i];
+    c.rpm.textContent = act.toFixed(0);
+    c.tgt.textContent = '目标 ' + tgt.toFixed(0);
+    c.cur.textContent = 'I ' + cur.toFixed(0);
+    const pct = clamp(Math.abs(act) / P.maxMotorRpm * 100, 0, 100);
+    c.fill.style.width = pct.toFixed(1) + '%';
+    c.root.classList.toggle('on', Math.abs(cur) >= P.currentLimit * 0.97);
+  }
+
+  /* 控制链 */
+  el('cvx').textContent = S.command[0].toFixed(2);
+  el('cvy').textContent = S.command[1].toFixed(2);
+  el('cwz').textContent = S.command[2].toFixed(2);
+  el('lvx').textContent = S.limited[0].toFixed(2);
+  el('lvy').textContent = S.limited[1].toFixed(2);
+  el('lwz').textContent = S.limited[2].toFixed(2);
+
+  const w = S.scopeWheel;
+  el('c-tgt').textContent = S.targetPhys[w].toFixed(0);
+  el('c-act').textContent = S.meas[w].toFixed(0);
+  const errV = S.targetPhys[w] - S.meas[w];
+  el('c-err').textContent = errV.toFixed(0);
+  el('c-cur').textContent = S.current[w].toFixed(0);
+  el('c-tgt').classList.toggle('hot', S.scopeWheel >= 0 && S.targetPhys[w] !== 0);
+  el('c-cur').classList.toggle('hot', Math.abs(S.current[w]) >= P.currentLimit * 0.97);
+
+  /* 电流量纲：C620 原始值 ±16384 ↔ ±20 A */
+  el('c-amp').textContent = (S.current[w] * CURRENT_A_PER_LSB).toFixed(2);
+  el('c-lim').textContent = (P.currentLimit * CURRENT_A_PER_LSB).toFixed(2);
+  el('c-pct').textContent = Math.round(Math.abs(S.current[w]) / P.currentLimit * 100) + '%';
+
+  /* 遥控原始通道值（Watch 里看到的就是这个量纲） */
+  el('rc-ch1').textContent = normToRaw(S.rc.strafe);
+  el('rc-ch2').textContent = normToRaw(S.rc.forward);
+  el('rc-ch4').textContent = normToRaw(S.rc.rotate);
+  el('rc-ch5').textContent = S.rc.testMode ? 1807 : 240;
+  el('rc-ch6').textContent = S.rc.enabled ? 1807 : 240;
+  el('rc-ch9').textContent = S.rc.top ? 1807 : 240;
+
+  updateCanFrame();
+  for (let i = 0; i < 4; i++) {
+    fbRows[i].rpm.textContent = S.rpm[i].toFixed(0);
+    fbRows[i].on.textContent = F.motorOffline[i] ? '失联' : '在线';
+    fbRows[i].on.style.color = F.motorOffline[i] ? 'var(--bad)' : 'var(--ok)';
+  }
+
+  /* 场地读数 */
+  el('ro-cmd').textContent =
+    S.command[0].toFixed(2) + ' / ' + S.command[1].toFixed(2) + ' / ' + S.command[2].toFixed(2);
+  el('ro-act').textContent =
+    S.vx.toFixed(2) + ' / ' + S.vy.toFixed(2) + ' / ' + S.wz.toFixed(2);
+
+  /* 轮速跟踪误差：取目标最大的那一轮，反映闭环跟踪质量 */
+  let wi = 0;
+  for (let i = 1; i < 4; i++) if (Math.abs(S.targetPhys[i]) > Math.abs(S.targetPhys[wi])) wi = i;
+  const tg = S.targetPhys[wi];
+  const trackErr = Math.abs(tg) > 80 ? (Math.abs(S.rpm[wi]) / Math.abs(tg) - 1) * 100 : null;
+
+  el('ro-err').textContent =
+    trackErr === null ? '—' : (trackErr >= 0 ? '+' : '') + trackErr.toFixed(1) + ' %';
+  el('ro-err').style.color =
+    trackErr === null ? '' : (Math.abs(trackErr) > 10 ? 'var(--warn)' : 'var(--ok)');
+
+  const gg = geom();
+  el('ro-scale').textContent =
+    '×' + S.scale.toFixed(3) + ' / ' + (P.maxMotorRpm / gg.toRpmCfg).toFixed(2) + ' m/s';
+  el('calc-scale-note').textContent =
+    'to_rpm = ' + gg.toRpmCfg.toFixed(1) + '，k = (L+W)/2 = ' + gg.k.toFixed(2) + ' m；' +
+    '轮速上限折算可达 ' + (P.maxMotorRpm / gg.toRpmCfg).toFixed(2) + ' m/s' +
+    '（' + P.maxVx.toFixed(1) + ' m/s 需 ' + (P.maxVx * gg.toRpmCfg).toFixed(0) + ' 转子 rpm）。';
+
+  const deg = S.theta * 180 / Math.PI;
+  el('ro-pose').textContent =
+    (Math.abs(deg) < 0.05 ? '0.0' : deg.toFixed(1)) + '° / ' + Math.hypot(S.x, S.y).toFixed(2) + ' m';
+
+  updateScopeStats();
+}
+
+/* 示波器窗口内的稳态与动态指标（对应 调车训练.md §2 的四项交付内容） */
+function updateScopeStats() {
+  const sc = S.scope;
+  const n = sc.t.length;
+  if (n < 5) {
+    ['st-tgt', 'st-act', 'st-err', 'st-ovr', 'st-sat'].forEach(id => el(id).textContent = '—');
+    S.stats = null;
+    updateVerdict();
+    return;
+  }
+  let sT = 0, sA = 0, cT = 0;
+  let peak = 0, satN = 0, total = 0;
+  for (let i = 0; i < n; i++) {
+    const age = S.time - sc.t[i];
+    if (age > SCOPE_WINDOW) continue;
+    total++;
+    peak = Math.max(peak, Math.abs(sc.act[i]));
+    if (Math.abs(sc.cur[i]) >= P.currentLimit * 0.97) satN++;
+    if (age <= 0.5) { sT += sc.tgt[i]; sA += sc.act[i]; cT++; }
+  }
+  const tgtS = cT ? sT / cT : 0;
+  const actS = cT ? sA / cT : 0;
+  const gap = tgtS - actS;
+
+  el('st-tgt').textContent = tgtS.toFixed(0) + ' rpm';
+  el('st-act').textContent = actS.toFixed(0) + ' rpm';
+  el('st-err').textContent = Math.abs(gap) < 0.6 ? '0 rpm' : (gap > 0 ? '+' : '') + gap.toFixed(0) + ' rpm';
+  el('st-err').style.color = Math.abs(gap) > 60 ? 'var(--warn)' : 'var(--ok)';
+
+  const ovr = Math.abs(tgtS) > 120 ? (peak / Math.abs(tgtS) - 1) * 100 : null;
+  el('st-ovr').textContent = peak.toFixed(0) +
+    (ovr === null || ovr <= 0.5 ? ' / 无超调' : ' / +' + ovr.toFixed(1) + '%');
+
+  el('st-sat').textContent = total ? (satN / total * 100).toFixed(0) + ' %' : '—';
+  el('st-sat').style.color = total && satN / total > 0.25 ? 'var(--bad)' : '';
+
+  S.stats = {
+    tgtS, actS, gap, peak, ovr,
+    satPct: total ? satN / total : 0,
+    n: total
+  };
+  updateVerdict();
+}
+
+/* 一句话诊断：把「看波形猜问题」变成「按结论改一个参数」 */
+let verdictCache = '';
+let lastVerdictAt = 0;
+const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+function updateVerdict(force) {
+  const now = nowMs();
+  if (!force && now - lastVerdictAt < 200) return;   // 5 Hz 足够，别每帧重建 DOM
+  lastVerdictAt = now;
+  const box = document.getElementById('scope-verdict');
+  const txt = document.getElementById('scope-verdict-text');
+  if (!box || !txt) return;
+  const st = S.stats;
+  const wName = WN[S.scopeWheel] + ' ' + WZH[S.scopeWheel];
+  const q5 = v => (Math.round(v / 5) * 5).toFixed(0);   // 5 rpm 量化，避免噪声让文字每帧抖
+  let cls = '', head = '', body = '';
+
+  const bitText = [];
+  if (S.stopReason & 1) bitText.push('bit0 遥控丢帧');
+  if (S.stopReason & 2) bitText.push('bit1 电机无反馈');
+  if (S.stopReason & 4) bitText.push('bit2 CAN 错误');
+  if (S.stopReason & 8) bitText.push('bit3 周期超时');
+
+  if (S.stopReason) {
+    cls = 'bad';
+    head = '停机 · stop_reason=' + S.stopReason;
+    body = '先按位掩码定位：<b>' + bitText.join('、') + '</b>。四轮此刻零电流、目标清零；修好链路后必须<b>重新合 CH6</b>，停机不会自恢复。';
+  } else if (!S.armed) {
+    cls = 'warn';
+    head = '未使能 · CH6 断开';
+    body = '此时四轮零电流、PID 不进闭环，波形只会是一条贴着 0 的线。合上 CH6 再看响应；单轮测试前记得先架空。';
+  } else if (!st) {
+    cls = '';
+    head = '等待输入';
+    body = '点上方「阶跃序列」前进 / 左移 / 逆时针，或直接拖摇杆——这里会基于 ' + wName + ' 的末 0.5 s 数据给出下一步该动哪个参数。';
+  } else if (Math.abs(st.tgtS) < 120) {
+    cls = '';
+    head = '无输入';
+    body = wName + ' 目标只有 ' + st.tgtS.toFixed(0) + ' rpm，看不出闭环特性。给一个 ≥300 rpm 的阶跃，静差与超调才有意义。';
+  } else if (st.satPct > 0.25) {
+    cls = 'bad';
+    head = '电流长期饱和';
+    body = '窗口内 <b>' + (st.satPct * 100).toFixed(0) + '%</b> 的周期贴着 ±' + P.currentLimit +
+      ' 限幅：转矩不是不够，而是被限住了。先降加速度或减负载；只加 Kp 只会让饱和更久，<b>不会更快</b>。';
+  } else if (st.ovr !== null && st.ovr > 12) {
+    cls = 'warn';
+    head = '超调 +' + st.ovr.toFixed(0) + '%';
+    body = 'Kp 偏大或负载偏轻。先把 Kp 退一档；仍要压超调再把 Kd 从 0 小步加到 <b>0.02~0.05</b>（量纲 电流/(rpm·s⁻¹)，>0.1 容易发散）。';
+  } else if (Math.abs(st.gap) > Math.max(25, Math.abs(st.tgtS) * 0.05) && P.ki === 0) {
+    cls = 'warn';
+    head = '纯 P 静差 ' + q5(st.gap) + ' rpm';
+    body = '（' + (Math.abs(st.gap) / Math.abs(st.tgtS) * 100).toFixed(0) + '%）Ki=0 必然留静差，低速段占比更大。' +
+      '把 Ki 从 0 加到 <b>2~5</b>，并同时把 <b>I 限幅提到 2000</b>——默认 1000 会把积分卡死，加了 Ki 也看不出变化。';
+  } else if (Math.abs(st.gap) > Math.max(25, Math.abs(st.tgtS) * 0.05)) {
+    cls = 'warn';
+    head = '仍有静差 ' + q5(st.gap) + ' rpm';
+    body = 'Ki 已非零却还差一截：先看 I 限幅（当前 ' + P.integralLimit + '）是否顶满，再把 Ki 加一档；积分够用时静差应趋近 0。';
+  } else {
+    cls = 'ok';
+    head = '跟踪良好';
+    body = '稳态误差 ' + (Math.abs(st.gap) < 0.6 ? '0' : q5(st.gap)) + ' rpm，' +
+      (st.ovr === null || st.ovr <= 0.5 ? '无明显超调' : '超调 +' + st.ovr.toFixed(0) + '%') +
+      '。可再把 Kp 推高一档，直到出现明显超调后回退一格，这就是这套底盘的 Kp 上限。';
+  }
+
+  const stamp = cls + '|' + head + '|' + body;
+  if (stamp === verdictCache) return;          // 每帧都调，内容没变就别碰 DOM
+  verdictCache = stamp;
+
+  box.className = 'verdict' + (cls ? ' ' + cls : '');
+  box.querySelector('.vt').textContent = head;
+  txt.innerHTML = body;
+}
+
+/* =========================================================================
+ * 11. 主循环
+ * ========================================================================= */
+
+let lastTs = 0;
+let accum = 0;
+
+function frame(ts) {
+  if (!lastTs) lastTs = ts;
+  let real = (ts - lastTs) / 1000;
+  lastTs = ts;
+  real = Math.min(real, 0.1);
+
+  if (S.running) {
+    /* 遥控输入合成：摇杆优先，其次键盘 */
+    if (stick.active) {
+      S.rc.forward = stick.y;
+      S.rc.strafe = stick.x;
+      rotVal.textContent = S.rc.rotate.toFixed(2);
+    } else if (!S.script) {
+      const kf = (keys.has('w') ? 1 : 0) - (keys.has('s') ? 1 : 0);
+      const ks = (keys.has('d') ? 1 : 0) - (keys.has('a') ? 1 : 0);
+      const kr = (keys.has('q') ? 1 : 0) - (keys.has('e') ? 1 : 0);
+      if (kf || ks) { S.rc.forward = kf; S.rc.strafe = ks; }
+      else { S.rc.forward = 0; S.rc.strafe = 0; }
+      if (kr) {
+        S.rc.rotate = kr;
+        rotInput.value = kr;
+        rotVal.textContent = kr.toFixed(2);
+      }
+    }
+
+    accum += real * S.speedScale;
+    let steps = 0;
+    while (accum >= P.dt && steps < 500) {
+      step(P.dt);
+      accum -= P.dt;
+      steps++;
+    }
+    if (steps >= 500) accum = 0;
+  }
+
+  updateUI();
+  drawField();
+  drawScope();
+  drawStick();
+  requestAnimationFrame(frame);
+}
+
+/* =========================================================================
+ * 12. 初始化
+ * ========================================================================= */
+
+function resizeAll() {
+  fb = fitCanvas(fieldCv);
+  sb = fitCanvas(scopeCv);
+  stb = fitCanvas(stickCv);
+}
+window.addEventListener('resize', resizeAll);
+
+resizeAll();
+updateCalc();
+syncTestInfo();
+updateUI();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
